@@ -1,0 +1,25 @@
+Invent one complete murder-mystery case from this setting.
+
+```yaml
+{{ setting_yaml }}
+```
+
+Requirements:
+- Exactly one murderer, who must be one of the suspects (never the victim).
+- The murderer must be an actor in a timeline event at {{ setting.get('murder_location', 'the crime scene') }}
+  at the time of death.
+- No person may be in two different places at the same time. Watchers and
+  actors both count as present.
+- Every suspect has at least one secret. At least one innocent suspect has a
+  secret that makes them look suspicious for an unrelated reason (mark it
+  `is_red_herring: true`).
+- 5 to 8 clues. At least two non-red-herring clues have `points_to` set to the
+  murderer.
+- Every id you reference (locations, actors, witnesses, `points_to`, victim,
+  murderer, crime_location) must exist elsewhere in the same JSON.
+
+Return one JSON object that validates against this schema:
+
+```json
+{{ schema }}
+```
