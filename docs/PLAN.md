@@ -187,12 +187,12 @@ consistent deception, why hidden reasoning helps.
 - `alibi play` in the terminal on top of the same tool functions.
 
 **Acceptance criteria**
-- [ ] You can play a whole game in the terminal and win or lose.
-- [ ] You can play one game from an external MCP client (OpenCode or
+- [x] You can play a whole game in the terminal and win or lose.
+- [x] You can play one game from an external MCP client (OpenCode or
       Claude Desktop). Document the config snippet in the README.
-- [ ] Unit tests: action counting, clue discovery rules, accusation scoring,
+- [x] Unit tests: action counting, clue discovery rules, accusation scoring,
       invalid ids return friendly errors.
-- [ ] A game survives an app restart (state in Postgres).
+- [x] A game survives an app restart (state in Postgres).
 
 **Learn:** MCP server design, tool descriptions as prompts, agent-friendly APIs.
 
@@ -308,6 +308,7 @@ shipping on constrained hardware, cost controls.
 | M0 Skeleton | 🚧 | scaffolding done; hello + Phoenix trace verified |
 | M1 Case File | 🚧 | code + tests done; 10/10 cases valid (see docs/results/m1.md); paper-solving pending |
 | M2 One Suspect | ✅ | interrogate, pgvector memory, 4-node LangGraph; 10/10 injection-resistant (docs/results/m2.md) |
+| M3 World + MCP | ✅ | play + MCP tools + Postgres state; think only for the murderer (docs/results/m3.md) |
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |
