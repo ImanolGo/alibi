@@ -129,9 +129,9 @@ About 5–6 weeks of evenings. Do them in order.
 - `alibi case --seed N` prints a readable summary and saves JSON to `cases/`.
 
 **Acceptance criteria**
-- [ ] Each validator check has a passing and a failing unit test (hand-made cases, no LLM).
-- [ ] `knowledge_for` tests: a suspect never knows events they didn't take part in or witness.
-- [ ] 10 generated cases: ≥ 8 pass validation (with repairs). Note pass
+- [x] Each validator check has a passing and a failing unit test (hand-made cases, no LLM).
+- [x] `knowledge_for` tests: a suspect never knows events they didn't take part in or witness.
+- [x] 10 generated cases: ≥ 8 pass validation (with repairs). Note pass
       rate and cost per case in `docs/results/m1.md`.
 - [ ] You solved 2 generated cases on paper.
 
@@ -305,8 +305,8 @@ shipping on constrained hardware, cost controls.
 
 | Milestone | Done | Notes |
 |---|---|---|
-| M0 Skeleton | ⬜ | |
-| M1 Case File | ⬜ | |
+| M0 Skeleton | 🚧 | scaffolding done; hello + Phoenix trace verified |
+| M1 Case File | 🚧 | code + tests done; 10/10 cases valid (see docs/results/m1.md); paper-solving pending |
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |
