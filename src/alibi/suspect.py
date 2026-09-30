@@ -57,6 +57,7 @@ class SuspectAgent:
         llm: LLM | None = None,
         game_id: str = "local",
         setting: dict[str, Any] | None = None,
+        reason: bool | None = None,
     ) -> None:
         person = case.person(person_id)
         if person is None:
@@ -69,6 +70,9 @@ class SuspectAgent:
         self.llm = llm or default_client()
         self.setting = setting if setting is not None else load_setting()
         self.is_murderer = case.murderer == person_id
+        # Private reasoning steadies deception; innocents rarely need it, so by
+        # default only the murderer pays for the extra call (faster turns).
+        self.reason = self.is_murderer if reason is None else reason
         self.clues_shown: list[str] = []
         self.history: list[Message] = []
         self.last_thought: Thought | None = None
@@ -174,6 +178,9 @@ class SuspectAgent:
         return {"retrieved": [hit.content for hit in hits]}
 
     def _think(self, state: SuspectState) -> dict[str, Any]:
+        if not self.reason:
+            # No private plan for most suspects: answer straight from the persona.
+            return {"thought": Thought(worry_level=0, strategy="answer truthfully")}
         messages: list[Message] = [
             {"role": "system", "content": self.system_prompt()},
             {
@@ -235,3 +242,39 @@ class SuspectAgent:
         graph.add_edge("speak", "remember")
         graph.add_edge("remember", END)
         return graph.compile()
+
+
+class SuspectTeam:
+    """All of a case's suspects, ready to be questioned by the game."""
+
+    def __init__(
+        self,
+        case: Case,
+        *,
+        game_id: str = "local",
+        memory_store: MemoryStore | None = None,
+        llm: LLM | None = None,
+        reason: bool | None = None,
+    ) -> None:
+        if memory_store is None:
+            from .memory import SqlMemoryStore
+
+            memory_store = SqlMemoryStore()
+        self.agents: dict[str, SuspectAgent] = {
+            person.id: SuspectAgent(
+                case,
+                person.id,
+                store=memory_store,
+                llm=llm,
+                game_id=game_id,
+                reason=reason,
+            )
+            for person in case.suspects()
+        }
+
+    def set_clues(self, suspect_id: str, clue_ids: list[str]) -> None:
+        """Tell the suspect which clues the detective has discovered."""
+        self.agents[suspect_id].clues_shown = list(clue_ids)
+
+    def answer(self, suspect_id: str, question: str) -> str:
+        return self.agents[suspect_id].answer(question)

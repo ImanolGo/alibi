@@ -64,7 +64,8 @@ def test_answer_runs_all_four_nodes(valid_case: Case) -> None:
         completions=["I was in the kitchen all evening."],
     )
     store = NullStore()
-    agent = make_agent(valid_case, "lady_blackwood", llm=llm, store=store)
+    # The murderer keeps the private "think" step (the default for the culprit).
+    agent = make_agent(valid_case, "butler_hobbs", llm=llm, store=store)
 
     answer = agent.answer("Where were you at ten?")
 
@@ -76,6 +77,31 @@ def test_answer_runs_all_four_nodes(valid_case: Case) -> None:
     assert store.added  # the remember node stored the exchange
     # retrieve(embed) -> think(structured) -> speak(complete) -> remember(embed)
     assert [call["method"] for call in llm.calls] == ["embed", "structured", "complete", "embed"]
+
+
+def test_innocent_skips_the_private_plan(valid_case: Case) -> None:
+    llm = FakeLLM(completions=["I was at the piano."])
+    agent = make_agent(valid_case, "lady_blackwood", llm=llm)
+
+    answer = agent.answer("Where were you at ten?")
+
+    assert answer == "I was at the piano."
+    # No structured call: retrieve(embed) -> speak(complete) -> remember(embed)
+    assert [call["method"] for call in llm.calls] == ["embed", "complete", "embed"]
+
+
+def test_reasoning_can_be_forced_on_for_an_innocent(valid_case: Case) -> None:
+    llm = FakeLLM(structured=[Thought()], completions=["Hm."])
+    agent = SuspectAgent(
+        valid_case,
+        "lady_blackwood",
+        store=NullStore(),
+        llm=llm,
+        setting=SETTING,
+        reason=True,
+    )
+    agent.answer("Where were you?")
+    assert "structured" in [call["method"] for call in llm.calls]
 
 
 # --- confession only with >= 2 real clues ---------------------------------
