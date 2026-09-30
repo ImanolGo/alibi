@@ -11,6 +11,7 @@ from functools import lru_cache
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, Index, String, Text, create_engine, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -40,6 +41,20 @@ class Memory(Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+    )
+
+
+class Game(Base):
+    """One saved game: its case plus the mutable state, so it survives a restart."""
+
+    __tablename__ = "games"
+
+    game_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(128))
+    state: Mapped[dict] = mapped_column(JSONB)
+    case_json: Mapped[dict] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 
