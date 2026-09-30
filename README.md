@@ -40,3 +40,27 @@ docs/PLAN.md      roadmap · docs/adr/ decisions · docs/results/ measurements
 - Every LLM/embedding call goes through `src/alibi/llm.py`, with a role.
 - Models come from `config/models.yaml`; prompts from `src/alibi/prompts/*.jinja`.
 - The validator, not the model, decides whether a case is sound.
+
+## Play from an MCP client
+
+The whole game is exposed as MCP tools over stdio. Point any MCP client at:
+
+```json
+{
+  "mcpServers": {
+    "alibi": {
+      "command": "uv",
+      "args": [
+        "run", "alibi", "mcp",
+        "--case", "cases/01_blackwood_manor_1926.json"
+      ],
+      "cwd": "/absolute/path/to/alibi"
+    }
+  }
+}
+```
+
+Tools: `case_summary`, `status`, `list_rooms`, `search_room`, `inspect`,
+`question`, `lie_detector` (stub until M5), `accuse`. The game is saved in
+Postgres, so it resumes after a restart. In the terminal you can play the same
+game with `uv run alibi play --case …`.
