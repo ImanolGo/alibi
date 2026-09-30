@@ -67,6 +67,8 @@ class GameStore(Protocol):
 
     def load(self, game_id: str) -> Game | None: ...
 
+    def delete(self, game_id: str) -> None: ...
+
 
 class InMemoryGameStore:
     """Store for tests and dry runs; keeps rows in a dict."""
@@ -80,6 +82,9 @@ class InMemoryGameStore:
     def load(self, game_id: str) -> Game | None:
         row = self.rows.get(game_id)
         return None if row is None else Game.from_row(row, store=self)
+
+    def delete(self, game_id: str) -> None:
+        self.rows.pop(game_id, None)
 
 
 class SqlGameStore:
@@ -112,6 +117,13 @@ class SqlGameStore:
                 "case_json": row.case_json,
             }
         return Game.from_row(data, store=self)
+
+    def delete(self, game_id: str) -> None:
+        with self._session_factory() as session:
+            row = session.get(GameRow, game_id)
+            if row is not None:
+                session.delete(row)
+                session.commit()
 
 
 class Game:

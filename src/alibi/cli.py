@@ -14,6 +14,7 @@ from rich.text import Text
 
 from .case import Case
 from .config import get_settings, load_setting
+from .game import ActionResult, Game, SqlGameStore, load_or_create_game
 from .generator import generate_valid_case
 from .llm import complete_with_usage, spend_today
 from .memory import SqlMemoryStore
@@ -232,3 +233,126 @@ def _render_case(case_obj, violations: list[Violation]) -> Group:
     else:
         parts.append(Text("validator: no violations ✓", style="green"))
     return Group(*parts)
+
+
+PLAY_HELP = (
+    "rooms · search <room_id> · inspect <clue_id> · ask <suspect_id> <question> · "
+    "detector · accuse <suspect_id> [motive] · status · quit"
+)
+
+
+@app.command()
+def play(
+    case_path: Path | None = typer.Option(
+        None, "--case", exists=True, dir_okay=False, readable=True
+    ),
+    game_id: str | None = typer.Option(None, "--game-id"),
+    new: bool = typer.Option(False, "--new", help="Start over even if a saved game exists."),
+) -> None:
+    """Play a whole game in the terminal."""
+    case_obj = _resolve_case(case_path)
+    store = _make_game_store()
+    resolved_id = game_id or case_obj.id
+    if new:
+        store.delete(resolved_id)
+    game = load_or_create_game(case_obj, game_id=resolved_id, store=store)
+
+    console.print(
+        Panel(
+            Text.assemble(
+                (game.case.title, "bold magenta"),
+                "\n",
+                (game.case_summary().message, "dim"),
+                "\n\n",
+                PLAY_HELP,
+            ),
+            title="alibi",
+            border_style="magenta",
+        )
+    )
+
+    while game.state.outcome == "playing":
+        try:
+            line = console.input("[bold cyan]Detective > [/bold cyan]").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if not line:
+            continue
+        if line in {"quit", "exit", "/q"}:
+            break
+        if line in {"help", "?"}:
+            console.print(f"[dim]{PLAY_HELP}[/dim]")
+            continue
+        result = _dispatch(game, line)
+        if result is None:
+            continue
+        style = "green" if result.ok else "yellow"
+        console.print(Panel(result.message, border_style=style))
+
+    if game.state.outcome != "playing":
+        console.print(f"[bold]{'You win!' if game.state.outcome == 'won' else 'You lose.'}[/bold]")
+    console.print(f"[dim]spent today: ${spend_today():.4f}[/dim]")
+
+
+@app.command()
+def mcp(
+    case_path: Path = typer.Option(..., "--case", exists=True, dir_okay=False, readable=True),
+    game_id: str | None = typer.Option(None, "--game-id"),
+) -> None:
+    """Run the MCP server (stdio) bound to a saved case, for external clients."""
+    from .mcp_server import serve
+
+    serve(str(case_path), game_id=game_id)
+
+
+def _resolve_case(case_path: Path | None) -> Case:
+    if case_path is not None:
+        return Case.model_validate_json(case_path.read_text(encoding="utf-8"))
+    cases = sorted(get_settings().cases_dir.glob("*.json"))
+    if not cases:
+        console.print("[red]No cases found.[/red] Run `alibi case` first, or pass --case.")
+        raise typer.Exit(code=2)
+    return Case.model_validate_json(cases[-1].read_text(encoding="utf-8"))
+
+
+def _make_game_store() -> SqlGameStore:
+    from .db import get_engine, get_session_factory, init_db
+
+    try:
+        init_db(get_engine())
+    except Exception as exc:  # noqa: BLE001 - surface a friendly message
+        console.print(f"[red]Database unavailable:[/red] {exc}")
+        console.print("[dim]Run `make up` and check ALIBI_DATABASE_URL in .env.[/dim]")
+        raise typer.Exit(code=3) from exc
+    return SqlGameStore(get_session_factory())
+
+
+def _dispatch(game: Game, line: str) -> ActionResult | None:
+    parts = line.split()
+    command, rest = parts[0].lower(), parts[1:]
+    if command == "rooms":
+        return game.list_rooms()
+    if command == "status":
+        return game.status()
+    if command == "case":
+        return game.case_summary()
+    if command == "search":
+        if not rest:
+            return ActionResult(ok=False, message="usage: search <room_id>")
+        return game.search_room(rest[0])
+    if command == "inspect":
+        if not rest:
+            return ActionResult(ok=False, message="usage: inspect <clue_id>")
+        return game.inspect(rest[0])
+    if command == "ask":
+        if len(rest) < 2:
+            return ActionResult(ok=False, message="usage: ask <suspect_id> <question>")
+        return game.question(rest[0], " ".join(rest[1:]))
+    if command == "detector":
+        return game.lie_detector()
+    if command == "accuse":
+        if not rest:
+            return ActionResult(ok=False, message="usage: accuse <suspect_id> [motive]")
+        motive = " ".join(rest[1:]) or None
+        return game.accuse(rest[0], motive)
+    return ActionResult(ok=False, message=f"Unknown command {command!r}. Try: {PLAY_HELP}")
