@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Literal
 
 from mcp.server.mcpserver import MCPServer
 
@@ -76,17 +75,43 @@ def _text(result: ActionResult) -> str:
 
 
 def serve(
-    case_path: str,
+    case_path: str | None = None,
     *,
     game_id: str | None = None,
-    transport: Literal["stdio", "sse", "streamable-http"] = "stdio",
+    transport: str = "stdio",
+    host: str = "127.0.0.1",
+    port: int = 8080,
 ) -> None:
-    """Run the stdio MCP server bound to a saved case, resuming if a game exists."""
+    """Run the MCP server. ``stdio`` for a local client; an HTTP transport for a
+    deployed service. Resumes a saved game if one exists, else starts fresh."""
+    import os
+
     from .db import get_engine, init_db
     from .game import SqlGameStore, load_or_create_game
 
-    case = Case.model_validate_json(Path(case_path).read_text(encoding="utf-8"))
+    resolved = case_path or os.environ.get("ALIBI_CASE") or _newest_case()
+    if not resolved:
+        raise SystemExit(
+            "No case found. Generate one with `alibi case`, pass --case, or set ALIBI_CASE."
+        )
+    case = Case.model_validate_json(Path(resolved).read_text(encoding="utf-8"))
     init_db(get_engine())
     store = SqlGameStore()
     game = load_or_create_game(case, game_id=game_id or case.id, store=store)
-    build_server(game).run(transport=transport)
+    server = build_server(game)
+
+    if transport == "streamable-http":
+        server.run(transport="streamable-http", host=host, port=port)
+    elif transport == "sse":
+        server.run(transport="sse", host=host, port=port)
+    elif transport == "stdio":
+        server.run(transport="stdio")
+    else:
+        raise SystemExit(f"Unknown transport {transport!r} (stdio, sse, streamable-http).")
+
+
+def _newest_case() -> str | None:
+    from .config import get_settings
+
+    cases = sorted(get_settings().cases_dir.glob("*.json"))
+    return str(cases[-1]) if cases else None

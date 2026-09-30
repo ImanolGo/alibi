@@ -1,0 +1,28 @@
+The case:
+
+{{ case_summary }}
+
+Rooms you can search:
+
+{{ rooms }}
+
+{{ status }}
+
+{% if transcript %}
+What you have done so far:
+
+{% for turn in transcript %}
+- {{ turn.action }} -> {{ turn.result }}
+{% endfor %}
+
+{% endif %}
+Choose your next single action. Valid kinds and their arguments:
+
+- search_room(room_id): look for clues in a room. Costs an action.
+- inspect(clue_id): examine a clue you have already found. Costs an action.
+- question(suspect_id, text): interrogate a suspect. Costs an action.
+- status: review your position. Free.
+- accuse(suspect_id, motive): name the person who did it and end the game.
+
+Only inspect clues you have already found, and only accuse when you have enough
+evidence. State your reasoning, then the action.

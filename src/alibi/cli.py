@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,15 @@ from rich.text import Text
 
 from .case import Case
 from .config import get_settings, load_setting
+from .evals import (
+    check_gates,
+    compute_metrics,
+    load_gates,
+    render_report,
+    run_eval,
+    save_claims,
+    write_report,
+)
 from .game import ActionResult, Game, SqlGameStore, load_or_create_game
 from .generator import generate_valid_case
 from .llm import complete_with_usage, spend_today
@@ -296,13 +306,24 @@ def play(
 
 @app.command()
 def mcp(
-    case_path: Path = typer.Option(..., "--case", exists=True, dir_okay=False, readable=True),
+    case_path: Path | None = typer.Option(
+        None, "--case", exists=True, dir_okay=False, readable=True
+    ),
     game_id: str | None = typer.Option(None, "--game-id"),
+    transport: str = typer.Option("stdio", "--transport", help="stdio | sse | streamable-http."),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8080, "--port"),
 ) -> None:
-    """Run the MCP server (stdio) bound to a saved case, for external clients."""
+    """Run the MCP server so an external client (or a deployment) can play."""
     from .mcp_server import serve
 
-    serve(str(case_path), game_id=game_id)
+    serve(
+        None if case_path is None else str(case_path),
+        game_id=game_id,
+        transport=transport,
+        host=host,
+        port=port,
+    )
 
 
 def _resolve_case(case_path: Path | None) -> Case:
@@ -356,3 +377,38 @@ def _dispatch(game: Game, line: str) -> ActionResult | None:
         motive = " ".join(rest[1:]) or None
         return game.accuse(rest[0], motive)
     return ActionResult(ok=False, message=f"Unknown command {command!r}. Try: {PLAY_HELP}")
+
+
+@app.command()
+def eval(
+    games: int = typer.Option(5, "--games", min=1, help="How many games to simulate."),
+    seed: int | None = typer.Option(None, "--seed", help="Seed for reproducible cases."),
+    gate: bool = typer.Option(False, "--gate", help="Exit non-zero if a gate is violated."),
+) -> None:
+    """Generate cases, let the solver play, and report the metrics."""
+    records = run_eval(games, seed=seed)
+    metrics = compute_metrics(records)
+    failures = check_gates(metrics, load_gates())
+
+    table = Table(title="eval metrics")
+    table.add_column("metric", style="cyan")
+    table.add_column("value")
+    for name, value in metrics.items():
+        table.add_row(name, f"{value:.3f}")
+    console.print(table)
+
+    claims = sum(len(record.claims) for record in records)
+    console.print(
+        f"[dim]games: {len(records)} · claims: {claims} · spent today: ${spend_today():.4f}[/dim]"
+    )
+
+    with contextlib.suppress(Exception):
+        console.print(f"[dim]stored {save_claims(records)} claims in Postgres[/dim]")
+
+    path = write_report(render_report(records, metrics, failures))
+    console.print(f"[green]Report:[/green] {path}")
+
+    for failure in failures:
+        console.print(f"[red]GATE FAIL[/red] {failure}")
+    if failures and gate:
+        raise typer.Exit(code=1)

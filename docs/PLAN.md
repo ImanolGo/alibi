@@ -230,7 +230,7 @@ consistent deception, why hidden reasoning helps.
 
 **Acceptance criteria**
 - [ ] `alibi eval --games 20` runs unattended from your laptop.
-- [ ] Solver can't access ground truth (test on its inputs).
+- [x] Solver can't access ground truth (test on its inputs).
 - [ ] Labeller vs your 30 hand labels: agreement reported (aim ≥ 80 %).
 - [ ] A deliberately broken suspect prompt makes the CI gate fail. Keep that PR (closed) and link it in the README.
 - [ ] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
@@ -309,6 +309,7 @@ shipping on constrained hardware, cost controls.
 | M1 Case File | 🚧 | code + tests done; 10/10 cases valid (see docs/results/m1.md); paper-solving pending |
 | M2 One Suspect | ✅ | interrogate, pgvector memory, 4-node LangGraph; 10/10 injection-resistant (docs/results/m2.md) |
 | M3 World + MCP | ✅ | play + MCP tools + Postgres state; think only for the murderer (docs/results/m3.md) |
+| M4 Evals | 🚧 | truth/solver/evals + gates + CI done; 20-game numbers & hand labels pending |
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |

@@ -1,4 +1,4 @@
-.PHONY: install up down test lint fmt type case hello clean
+.PHONY: install up down test lint fmt type case hello eval deploy clean
 
 install:
 	uv sync
@@ -26,6 +26,12 @@ case:
 
 hello:
 	uv run alibi hello
+
+eval:
+	uv run alibi eval --games 20 --gate
+
+deploy:
+	docker compose -f compose.homelab.yml up -d --build
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache dist build

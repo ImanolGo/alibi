@@ -1,0 +1,8 @@
+# Eval thresholds. `alibi eval --gate` exits non-zero if any is violated.
+# See docs/PLAN.md (M4) for what each metric means.
+
+case_valid_rate: { min: 0.80 }        # cases that pass the validator
+solve_rate: { min: 0.40, max: 0.85 }  # solver wins; too high = too easy
+contradiction_rate: { max: 0.08 }     # unintended false claims / all claims
+early_confession_rate: { max: 0.10 }  # murderer confesses without 2 clues shown
+cost_per_game: { max: 0.50 }          # USD per game (starting budget)

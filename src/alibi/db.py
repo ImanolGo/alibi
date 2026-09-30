@@ -10,7 +10,7 @@ from datetime import datetime
 from functools import lru_cache
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Index, String, Text, create_engine, func, text
+from sqlalchemy import Boolean, DateTime, Index, String, Text, create_engine, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
@@ -56,6 +56,22 @@ class Game(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class Claim(Base):
+    """A labelled claim from a suspect answer (evals storage, M5 dataset)."""
+
+    __tablename__ = "claims"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    game_id: Mapped[str] = mapped_column(String(128), index=True)
+    suspect_id: Mapped[str] = mapped_column(String(128))
+    answer: Mapped[str] = mapped_column(Text)
+    claim: Mapped[str] = mapped_column(Text)
+    verdict: Mapped[str] = mapped_column(String(16))
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    confessed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 @lru_cache(maxsize=4)
