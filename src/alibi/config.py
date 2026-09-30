@@ -24,8 +24,11 @@ DEFAULT_MODELS: dict[str, str] = {
     "suspect": "openai/gpt-4o-mini",
     "judge": "openai/gpt-4o-mini",
     "solver": "openai/gpt-4o-mini",
-    "embedding": "openai/text-embedding-3-small",
+    "embedding": "openrouter/openai/text-embedding-3-small",
 }
+
+# Dimension of the embedding vectors stored in Postgres (pgvector).
+EMBEDDING_DIM = 1536
 
 
 class Settings(BaseModel):
@@ -33,6 +36,8 @@ class Settings(BaseModel):
 
     daily_budget_usd: float = Field(default=2.0, ge=0)
     models: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_MODELS))
+    embedding_dim: int = EMBEDDING_DIM
+    database_url: str = "postgresql+psycopg://alibi:alibi@localhost:5432/alibi"
     project_root: Path = PROJECT_ROOT
     cases_dir: Path = PROJECT_ROOT / "cases"
     setting_path: Path = PROJECT_ROOT / "config" / "setting.yaml"
@@ -72,6 +77,10 @@ def get_settings() -> Settings:
     return Settings(
         daily_budget_usd=budget,
         models=_load_models(root / "config" / "models.yaml"),
+        database_url=os.environ.get(
+            "ALIBI_DATABASE_URL",
+            "postgresql+psycopg://alibi:alibi@localhost:5432/alibi",
+        ),
         project_root=root,
         cases_dir=Path(os.environ.get("ALIBI_CASES_DIR", str(root / "cases"))),
         setting_path=Path(os.environ.get("ALIBI_SETTING", str(root / "config" / "setting.yaml"))),
