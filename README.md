@@ -22,6 +22,7 @@ make lint
 cp .env.example .env  # add your provider API key
 make hello            # one real LLM call: answer, tokens, cost, latency
 make case             # generate + validate a case, save to cases/
+uv run alibi interrogate --case cases/<id>.json --suspect <suspect_id> --debug
 ```
 
 ## Layout

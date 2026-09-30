@@ -12,9 +12,12 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from .case import Case
 from .config import get_settings, load_setting
 from .generator import generate_valid_case
 from .llm import complete_with_usage, spend_today
+from .memory import SqlMemoryStore
+from .suspect import SuspectAgent
 from .tracing import init_tracing
 from .validator import Violation
 
@@ -76,6 +79,93 @@ def case(
 
     if violations:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def interrogate(
+    case_path: Path = typer.Option(..., "--case", exists=True, dir_okay=False, readable=True),
+    suspect: str = typer.Option(..., "--suspect", help="Person id to interrogate."),
+    game_id: str = typer.Option("local", "--game-id", help="Groups this game's memories."),
+    debug: bool = typer.Option(False, "--debug", help="Show the private 'think' output."),
+) -> None:
+    """Interrogate one suspect in the terminal. Type /help for commands."""
+    case_obj = Case.model_validate_json(case_path.read_text(encoding="utf-8"))
+    if case_obj.person(suspect) is None:
+        console.print(f"[red]No such suspect: {suspect}[/red]")
+        console.print("[dim]Suspects: " + ", ".join(p.id for p in case_obj.suspects()) + "[/dim]")
+        raise typer.Exit(code=2)
+
+    store = _make_store()
+    agent = SuspectAgent(case_obj, suspect, store=store, game_id=game_id)
+    console.print(
+        Panel(
+            Text.assemble(
+                (agent.person.name, "bold magenta"),
+                "\n",
+                (agent.person.description, "dim"),
+                "\n\n",
+                "Commands: /clue <id> to show evidence, /debug to toggle thoughts, /quit to leave.",
+            ),
+            title="interrogation",
+            border_style="magenta",
+        )
+    )
+
+    while True:
+        try:
+            line = console.input("[bold cyan]You > [/bold cyan]")
+        except (EOFError, KeyboardInterrupt):
+            break
+        text = line.strip()
+        if not text:
+            continue
+        if text in {"/quit", "/exit", ":q", "quit", "exit"}:
+            break
+        if text == "/debug":
+            debug = not debug
+            console.print(f"[dim]thoughts {'on' if debug else 'off'}[/dim]")
+            continue
+        if text == "/help":
+            console.print("[dim]/clue <id> · /debug · /quit[/dim]")
+            continue
+        if text.startswith("/clue"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2:
+                console.print("[red]usage: /clue <clue_id>[/red]")
+                continue
+            try:
+                answer = agent.show_clue(parts[1].strip())
+            except KeyError as exc:
+                console.print(f"[red]{exc}[/red]")
+                continue
+            _show_turn(agent, answer, debug)
+            continue
+
+        _show_turn(agent, agent.answer(text), debug)
+
+    console.print(f"[dim]spent today: ${spend_today():.4f}[/dim]")
+
+
+def _make_store() -> SqlMemoryStore:
+    from .db import get_engine, get_session_factory, init_db
+
+    try:
+        init_db(get_engine())
+    except Exception as exc:  # noqa: BLE001 - surface a friendly message
+        console.print(f"[red]Database unavailable:[/red] {exc}")
+        console.print("[dim]Run `make up` and check ALIBI_DATABASE_URL in .env.[/dim]")
+        raise typer.Exit(code=3) from exc
+    return SqlMemoryStore(get_session_factory())
+
+
+def _show_turn(agent: SuspectAgent, answer: str, debug: bool) -> None:
+    console.print(Panel(answer, title=agent.person.name, border_style="green"))
+    if debug and agent.last_thought is not None:
+        thought = agent.last_thought
+        console.print(
+            f"[dim]thought: worry {thought.worry_level}/10 · {thought.strategy} · "
+            f"{', '.join(thought.facts_to_use) or 'nothing to lean on'}[/dim]"
+        )
 
 
 def _render_case(case_obj, violations: list[Violation]) -> Group:
