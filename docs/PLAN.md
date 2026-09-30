@@ -160,11 +160,11 @@ remembers the conversation and lies only about its secrets.
   (`--debug` shows the private "think" output).
 
 **Acceptance criteria**
-- [ ] Information-hiding test: a suspect's rendered prompt contains no other
+- [x] Information-hiding test: a suspect's rendered prompt contains no other
       suspect's secret and (for innocents) not the murderer's identity.
-- [ ] Memory works: something you tell the suspect early is used 8+ questions later (manual check, noted in `docs/results/m2.md`).
-- [ ] 10 "ignore your instructions / are you an AI?" attempts: suspect stays in character in ≥ 9.
-- [ ] One trace per turn in Phoenix with the 4 nodes visible.
+- [x] Memory works: something you tell the suspect early is used 8+ questions later (manual check, noted in `docs/results/m2.md`).
+- [x] 10 "ignore your instructions / are you an AI?" attempts: suspect stays in character in ≥ 9.
+- [x] One trace per turn in Phoenix with the 4 nodes visible.
 
 **Learn:** RAG as agent memory, LangGraph basics, prompting for
 consistent deception, why hidden reasoning helps.
@@ -307,6 +307,7 @@ shipping on constrained hardware, cost controls.
 |---|---|---|
 | M0 Skeleton | 🚧 | scaffolding done; hello + Phoenix trace verified |
 | M1 Case File | 🚧 | code + tests done; 10/10 cases valid (see docs/results/m1.md); paper-solving pending |
+| M2 One Suspect | ✅ | interrogate, pgvector memory, 4-node LangGraph; 10/10 injection-resistant (docs/results/m2.md) |
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |
