@@ -1,0 +1,14 @@
+# Role -> LiteLLM model string. Never hardcode models in Python.
+#
+# This file is the source of truth. A deployment can override a single role
+# with ALIBI_MODEL_<ROLE> (e.g. ALIBI_MODEL_SUSPECT=openrouter/...), or set
+# ALIBI_MODEL to point every chat role at one model.
+#
+# Keep the generator strong (it invents the whole case) and the rest cheap.
+generator: openrouter/deepseek/deepseek-v4.1-flash
+suspect: openrouter/deepseek/deepseek-v4.1-flash
+judge: openrouter/deepseek/deepseek-v4.1-flash
+solver: openrouter/deepseek/deepseek-v4.1-flash
+
+# Embeddings for suspect memory (M2). Not a chat role. Served by OpenRouter too.
+embedding: openrouter/openai/text-embedding-3-small

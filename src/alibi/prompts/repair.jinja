@@ -1,0 +1,19 @@
+Here is a case you wrote:
+
+```json
+{{ case_json }}
+```
+
+A deterministic validator rejected it with these problems:
+
+{% for violation in violations %}
+- ({{ violation.code }}) {{ violation.message }}
+{% endfor %}
+
+Fix every problem while keeping the rest of the mystery intact and consistent.
+The same requirements as before still apply. Return the full corrected case as
+one JSON object validating against this schema:
+
+```json
+{{ schema }}
+```

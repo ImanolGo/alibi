@@ -1,0 +1,58 @@
+# Homelab deployment: Postgres + Phoenix + the Alibi app, sized for a 4 GB VM.
+#   docker compose -f compose.homelab.yml up -d --build
+# Generate a case once (uses the mounted cases volume):
+#   docker compose -f compose.homelab.yml run --rm app alibi case --seed 1
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: alibi
+      POSTGRES_PASSWORD: alibi
+      POSTGRES_DB: alibi
+    volumes:
+      - alibi_pg:/var/lib/postgresql/data
+    mem_limit: 350m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alibi"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenix_data:/data
+    ports:
+      - "6006:6006" # local-only view of traces
+    mem_limit: 450m
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ALIBI_ROOT: /app
+      ALIBI_DATABASE_URL: postgresql+psycopg://alibi:alibi@postgres:5432/alibi
+      ALIBI_PHOENIX_ENDPOINT: http://phoenix:6006/v1/traces
+      # Low cap: the deployed app is a public toy, not a free LLM proxy.
+      ALIBI_DAILY_BUDGET_USD: "1.0"
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in .env}
+      # ALIBI_CASE: /app/cases/my-case.json   # optional; default is the newest
+    volumes:
+      - alibi_cases:/app/cases
+    ports:
+      - "8080:8080" # MCP over streamable HTTP
+    mem_limit: 400m
+    restart: unless-stopped
+
+volumes:
+  alibi_pg:
+  phoenix_data:
+  alibi_cases:

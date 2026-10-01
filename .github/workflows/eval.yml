@@ -1,0 +1,57 @@
+name: eval
+
+# A 5-game eval on PRs that touch prompts or the suspect agent, to catch
+# regressions in deception, contradictions or difficulty. Requires the
+# OPENROUTER_API_KEY repository secret; the job is skipped without it.
+on:
+  pull_request:
+    paths:
+      - "src/alibi/prompts/**"
+      - "src/alibi/suspect.py"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: alibi
+          POSTGRES_PASSWORD: alibi
+          POSTGRES_DB: alibi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U alibi" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      ALIBI_DATABASE_URL: postgresql+psycopg://alibi:alibi@localhost:5432/alibi
+      ALIBI_DAILY_BUDGET_USD: "5.0"
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - name: Run the eval gate
+        id: eval
+        if: ${{ env.OPENROUTER_API_KEY != '' }}
+        continue-on-error: true
+        run: uv run alibi eval --games 5 --gate --seed 1
+      - name: Comment the summary on the PR
+        if: ${{ env.OPENROUTER_API_KEY != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPORT=$(ls -t docs/results/eval-*.md | head -1)
+          {
+            echo "### Alibi eval (5 games)"
+            echo
+            sed -n '/## Metrics/,$p' "$REPORT"
+          } > /tmp/comment.md
+          gh pr comment "${{ github.event.number }}" --body-file /tmp/comment.md --edit-last --create-if-none
+      - name: Fail if the gate failed
+        if: ${{ steps.eval.outcome == 'failure' }}
+        run: exit 1

@@ -129,9 +129,9 @@ About 5–6 weeks of evenings. Do them in order.
 - `alibi case --seed N` prints a readable summary and saves JSON to `cases/`.
 
 **Acceptance criteria**
-- [ ] Each validator check has a passing and a failing unit test (hand-made cases, no LLM).
-- [ ] `knowledge_for` tests: a suspect never knows events they didn't take part in or witness.
-- [ ] 10 generated cases: ≥ 8 pass validation (with repairs). Note pass
+- [x] Each validator check has a passing and a failing unit test (hand-made cases, no LLM).
+- [x] `knowledge_for` tests: a suspect never knows events they didn't take part in or witness.
+- [x] 10 generated cases: ≥ 8 pass validation (with repairs). Note pass
       rate and cost per case in `docs/results/m1.md`.
 - [ ] You solved 2 generated cases on paper.
 
@@ -160,11 +160,11 @@ remembers the conversation and lies only about its secrets.
   (`--debug` shows the private "think" output).
 
 **Acceptance criteria**
-- [ ] Information-hiding test: a suspect's rendered prompt contains no other
+- [x] Information-hiding test: a suspect's rendered prompt contains no other
       suspect's secret and (for innocents) not the murderer's identity.
-- [ ] Memory works: something you tell the suspect early is used 8+ questions later (manual check, noted in `docs/results/m2.md`).
-- [ ] 10 "ignore your instructions / are you an AI?" attempts: suspect stays in character in ≥ 9.
-- [ ] One trace per turn in Phoenix with the 4 nodes visible.
+- [x] Memory works: something you tell the suspect early is used 8+ questions later (manual check, noted in `docs/results/m2.md`).
+- [x] 10 "ignore your instructions / are you an AI?" attempts: suspect stays in character in ≥ 9.
+- [x] One trace per turn in Phoenix with the 4 nodes visible.
 
 **Learn:** RAG as agent memory, LangGraph basics, prompting for
 consistent deception, why hidden reasoning helps.
@@ -187,12 +187,12 @@ consistent deception, why hidden reasoning helps.
 - `alibi play` in the terminal on top of the same tool functions.
 
 **Acceptance criteria**
-- [ ] You can play a whole game in the terminal and win or lose.
-- [ ] You can play one game from an external MCP client (OpenCode or
+- [x] You can play a whole game in the terminal and win or lose.
+- [x] You can play one game from an external MCP client (OpenCode or
       Claude Desktop). Document the config snippet in the README.
-- [ ] Unit tests: action counting, clue discovery rules, accusation scoring,
+- [x] Unit tests: action counting, clue discovery rules, accusation scoring,
       invalid ids return friendly errors.
-- [ ] A game survives an app restart (state in Postgres).
+- [x] A game survives an app restart (state in Postgres).
 
 **Learn:** MCP server design, tool descriptions as prompts, agent-friendly APIs.
 
@@ -230,7 +230,7 @@ consistent deception, why hidden reasoning helps.
 
 **Acceptance criteria**
 - [ ] `alibi eval --games 20` runs unattended from your laptop.
-- [ ] Solver can't access ground truth (test on its inputs).
+- [x] Solver can't access ground truth (test on its inputs).
 - [ ] Labeller vs your 30 hand labels: agreement reported (aim ≥ 80 %).
 - [ ] A deliberately broken suspect prompt makes the CI gate fail. Keep that PR (closed) and link it in the README.
 - [ ] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
@@ -305,8 +305,11 @@ shipping on constrained hardware, cost controls.
 
 | Milestone | Done | Notes |
 |---|---|---|
-| M0 Skeleton | ⬜ | |
-| M1 Case File | ⬜ | |
+| M0 Skeleton | 🚧 | scaffolding done; hello + Phoenix trace verified |
+| M1 Case File | 🚧 | code + tests done; 10/10 cases valid (see docs/results/m1.md); paper-solving pending |
+| M2 One Suspect | ✅ | interrogate, pgvector memory, 4-node LangGraph; 10/10 injection-resistant (docs/results/m2.md) |
+| M3 World + MCP | ✅ | play + MCP tools + Postgres state; think only for the murderer (docs/results/m3.md) |
+| M4 Evals | 🚧 | truth/solver/evals + gates + CI done; 20-game numbers & hand labels pending |
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |

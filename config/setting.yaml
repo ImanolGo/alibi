@@ -1,0 +1,25 @@
+# The one setting for the minimal game. The generator turns this into a case.
+name: Blackwood Manor
+year: 1926
+summary: >
+  A rainswept country house on the Yorkshire moors. The household is snowed in
+  for the evening; nobody could have come or gone.
+victim: >
+  Lord Edmund Blackwood, the master of the house: proud, in debt, and not
+  much mourned.
+time_of_death: "22:00"
+murder_location: the library
+suspect_count: 4
+tone: >
+  Classic cosy mystery. The crime happens off-page: clues and testimony only,
+  never gore. Dry wit, period detail, everyone has something to hide.
+rooms:
+  - drawing room
+  - library
+  - conservatory
+  - kitchen
+  - west corridor
+notes: >
+  One evening's timeline, roughly 20:00 to 23:00. Five to eight clues, at most
+  two of them red herrings. Every suspect has a secret; at least one innocent's
+  secret should make them look suspicious for an unrelated reason.

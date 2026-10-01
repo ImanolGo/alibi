@@ -1,0 +1,32 @@
+# Postgres (pgvector) for M2+ and Phoenix for tracing.
+# The app itself is run locally with `uv run alibi ...`.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: alibi
+      POSTGRES_PASSWORD: alibi
+      POSTGRES_DB: alibi
+    ports:
+      - "5432:5432"
+    volumes:
+      - alibi_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alibi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006" # UI + OTLP/HTTP
+      - "4317:4317" # OTLP/gRPC
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenix_data:/data
+
+volumes:
+  alibi_pg:
+  phoenix_data:
