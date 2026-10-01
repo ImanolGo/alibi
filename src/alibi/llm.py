@@ -203,6 +203,9 @@ class LiteLLM:
         if seed is not None:
             kwargs["seed"] = seed
         kwargs.update(extra)
+        # A hung provider connection must not block a whole eval run.
+        kwargs.setdefault("timeout", get_settings().request_timeout_s)
+        kwargs.setdefault("num_retries", 2)
 
         started = _time.perf_counter()
         with span("llm.complete", **{"llm.role": role, "llm.model": model}) as current:
@@ -298,7 +301,12 @@ class LiteLLM:
         check_budget()
         started = _time.perf_counter()
         with span("llm.embed", **{"llm.role": role, "llm.model": model}):
-            response = _embed_litellm(model=model, input=list(texts))
+            response = _embed_litellm(
+                model=model,
+                input=list(texts),
+                timeout=get_settings().request_timeout_s,
+                num_retries=2,
+            )
             latency = _time.perf_counter() - started
             cost = _cost_of(response)
             _ledger.add(cost)

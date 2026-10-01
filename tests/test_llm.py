@@ -93,6 +93,22 @@ def test_spend_cap_blocks_the_call_that_would_exceed_it(
         client.complete([{"role": "user", "content": "second"}], role="generator")
 
 
+def test_calls_carry_a_timeout_and_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return _response("hi")
+
+    monkeypatch.setattr(llm, "_call_litellm", fake)
+    monkeypatch.setattr(llm, "_cost_of", lambda _: 0.0)
+
+    llm.LiteLLM().complete([{"role": "user", "content": "a"}], role="generator")
+
+    assert captured["timeout"] == llm.get_settings().request_timeout_s
+    assert captured["num_retries"] == 2
+
+
 def test_ledger_sums_costs(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = Settings(daily_budget_usd=100.0, models={"generator": "openai/gpt-4o"})
     monkeypatch.setattr(llm, "get_settings", lambda: settings)

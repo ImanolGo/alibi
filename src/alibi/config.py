@@ -37,6 +37,7 @@ class Settings(BaseModel):
     daily_budget_usd: float = Field(default=2.0, ge=0)
     models: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_MODELS))
     embedding_dim: int = EMBEDDING_DIM
+    request_timeout_s: float = Field(default=120.0, gt=0)
     database_url: str = "postgresql+psycopg://alibi:alibi@localhost:5432/alibi"
     project_root: Path = PROJECT_ROOT
     cases_dir: Path = PROJECT_ROOT / "cases"
@@ -74,9 +75,11 @@ def get_settings() -> Settings:
     load_dotenv(PROJECT_ROOT / ".env")
     root = Path(os.environ.get("ALIBI_ROOT", str(PROJECT_ROOT)))
     budget = float(os.environ.get("ALIBI_DAILY_BUDGET_USD", "2.0"))
+    timeout = float(os.environ.get("ALIBI_REQUEST_TIMEOUT_S", "120"))
     return Settings(
         daily_budget_usd=budget,
         models=_load_models(root / "config" / "models.yaml"),
+        request_timeout_s=timeout,
         database_url=os.environ.get(
             "ALIBI_DATABASE_URL",
             "postgresql+psycopg://alibi:alibi@localhost:5432/alibi",

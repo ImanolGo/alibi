@@ -169,6 +169,9 @@ def run_eval(
             )
         except BudgetExceededError:
             break
+        except Exception as exc:  # noqa: BLE001 - one bad game must not kill the run
+            log.warning("eval game %d: generation failed: %s", index + 1, exc)
+            continue
 
         responder = RecordingResponder(
             SuspectTeam(case, game_id=game_id, memory_store=memory_store, llm=client)
@@ -180,6 +183,14 @@ def run_eval(
             solver.play()
         except BudgetExceededError:
             break
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "eval game %d: solver failed after %d steps: %s",
+                index + 1,
+                len(solver.actions),
+                exc,
+            )
+            continue
         log.info(
             "eval game %d/%d: %s in %d steps",
             index + 1,
@@ -196,6 +207,9 @@ def run_eval(
                 judgement = judge_answer(case, suspect_id, answer, llm=client)
             except BudgetExceededError:
                 break
+            except Exception as exc:  # noqa: BLE001
+                log.warning("eval game %d: labelling failed: %s", index + 1, exc)
+                continue
             claims.extend(flatten(game_id, suspect_id, answer, judgement, is_murderer=is_murderer))
             if (
                 is_murderer
