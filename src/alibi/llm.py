@@ -124,6 +124,30 @@ def _call_litellm(**kwargs: Any) -> Any:
     return litellm.completion(**kwargs)
 
 
+def _run_with_timeout(func: Any, kwargs: dict[str, Any], timeout: float) -> Any:
+    """Run a blocking call and abandon it if it exceeds ``timeout`` seconds.
+
+    LiteLLM's own ``timeout`` is not reliably enforced for every provider, so
+    this is the backstop that stops a hung socket stalling a whole eval run.
+    """
+    outcome: dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            outcome["value"] = func(**kwargs)
+        except BaseException as exc:  # noqa: BLE001 - re-raised in the caller
+            outcome["error"] = exc
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError(f"model call exceeded {timeout:g}s")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["value"]
+
+
 def _embed_litellm(**kwargs: Any) -> Any:
     import litellm
 
@@ -209,7 +233,7 @@ class LiteLLM:
 
         started = _time.perf_counter()
         with span("llm.complete", **{"llm.role": role, "llm.model": model}) as current:
-            response = _call_litellm(**kwargs)
+            response = _run_with_timeout(_call_litellm, kwargs, float(kwargs["timeout"]))
             latency = _time.perf_counter() - started
             prompt_tokens, completion_tokens = _tokens_of(response)
             cost = _cost_of(response)
@@ -301,11 +325,16 @@ class LiteLLM:
         check_budget()
         started = _time.perf_counter()
         with span("llm.embed", **{"llm.role": role, "llm.model": model}):
-            response = _embed_litellm(
-                model=model,
-                input=list(texts),
-                timeout=get_settings().request_timeout_s,
-                num_retries=2,
+            timeout = get_settings().request_timeout_s
+            response = _run_with_timeout(
+                _embed_litellm,
+                {
+                    "model": model,
+                    "input": list(texts),
+                    "timeout": timeout,
+                    "num_retries": 2,
+                },
+                timeout,
             )
             latency = _time.perf_counter() - started
             cost = _cost_of(response)

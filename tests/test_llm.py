@@ -93,6 +93,25 @@ def test_spend_cap_blocks_the_call_that_would_exceed_it(
         client.complete([{"role": "user", "content": "second"}], role="generator")
 
 
+def test_run_with_timeout_returns_the_value() -> None:
+    assert llm._run_with_timeout(lambda **_: 42, {}, 1.0) == 42
+
+
+def test_run_with_timeout_abandons_a_hung_call() -> None:
+    import time
+
+    with pytest.raises(TimeoutError):
+        llm._run_with_timeout(lambda **_: time.sleep(5), {}, 0.1)
+
+
+def test_run_with_timeout_reraises_the_original_error() -> None:
+    def boom(**_: object) -> object:
+        raise RuntimeError("provider exploded")
+
+    with pytest.raises(RuntimeError, match="provider exploded"):
+        llm._run_with_timeout(boom, {}, 1.0)
+
+
 def test_calls_carry_a_timeout_and_retries(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
