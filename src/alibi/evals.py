@@ -171,6 +171,16 @@ def run_eval(
             break
         except Exception as exc:  # noqa: BLE001 - one bad game must not kill the run
             log.warning("eval game %d: generation failed: %s", index + 1, exc)
+            records.append(
+                GameRecord(
+                    game_id=game_id,
+                    case_id="",
+                    valid=False,
+                    outcome="error",
+                    solved=False,
+                    cost_usd=spend_today() - before,
+                )
+            )
             continue
 
         responder = RecordingResponder(
@@ -189,6 +199,17 @@ def run_eval(
                 index + 1,
                 len(solver.actions),
                 exc,
+            )
+            records.append(
+                GameRecord(
+                    game_id=game_id,
+                    case_id=case.id,
+                    valid=not violations,
+                    outcome="error",
+                    solved=False,
+                    cost_usd=spend_today() - before,
+                    steps=len(solver.actions),
+                )
             )
             continue
         log.info(

@@ -357,14 +357,11 @@ class Game:
         assert clue is not None  # validated
         if clue_id not in self.state.examined_clues:
             self.state.examined_clues.append(clue_id)
-        hint = ""
-        if clue.points_to:
-            person = self.case.person(clue.points_to)
-            if person is not None:
-                hint = f" It casts suspicion on {person.name}."
+        # Fair play: the clue describes the evidence but never names a suspect.
+        # The detective must do the reasoning (and the solver must earn it).
         return ActionResult(
-            message=f"Looking closely at {clue_id}: {clue.description}{hint}",
-            data={"points_to": clue.points_to, "red_herring": clue.is_red_herring},
+            message=f"Looking closely at {clue_id}: {clue.description}",
+            data={"red_herring": clue.is_red_herring},
         )
 
     def _question(self, suspect_id: str, text: str) -> ActionResult:

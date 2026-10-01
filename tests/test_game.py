@@ -73,7 +73,8 @@ def test_inspect_requires_discovery_first(valid_case: Case) -> None:
     game.search_room("library")
     after = game.inspect("clue_ash")
     assert after.ok
-    assert "Hobbs" in after.message  # the clue points at the butler
+    assert "butler's ash" in after.message  # the evidence is described
+    assert "Hobbs" not in after.message  # but the suspect is never named (fair play)
 
 
 def test_searching_an_empty_room_is_fine(valid_case: Case) -> None:
