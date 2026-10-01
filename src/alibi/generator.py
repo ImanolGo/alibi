@@ -17,7 +17,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from .case import Case
-from .config import load_setting
+from .config import get_settings, load_setting
 from .llm import LLM, Message, default_client
 from .validator import Violation, validate
 
@@ -73,7 +73,9 @@ def generate_case(
         _system_message(),
         {"role": "user", "content": render("case.jinja", **context)},
     ]
-    return client.structured(messages, Case, role="generator", seed=seed)
+    return client.structured(
+        messages, Case, role="generator", seed=seed, timeout=get_settings().generator_timeout_s
+    )
 
 
 def repair_case(
@@ -93,7 +95,9 @@ def repair_case(
         _system_message(),
         {"role": "user", "content": render("repair.jinja", **context)},
     ]
-    return client.structured(messages, Case, role="generator", seed=seed)
+    return client.structured(
+        messages, Case, role="generator", seed=seed, timeout=get_settings().generator_timeout_s
+    )
 
 
 def generate_valid_case(
