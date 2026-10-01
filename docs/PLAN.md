@@ -229,11 +229,11 @@ consistent deception, why hidden reasoning helps.
   summary table to the PR (e.g. `gh pr comment`).
 
 **Acceptance criteria**
-- [ ] `alibi eval --games 20` runs unattended from your laptop.
+- [x] `alibi eval --games 20` runs unattended from your laptop.
 - [x] Solver can't access ground truth (test on its inputs).
 - [ ] Labeller vs your 30 hand labels: agreement reported (aim ≥ 80 %).
 - [ ] A deliberately broken suspect prompt makes the CI gate fail. Keep that PR (closed) and link it in the README.
-- [ ] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
+- [x] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
 
 **Learn:** simulation-based evals, LLM-as-judge and checking the judge,
 metric design, eval gates in CI.
