@@ -98,6 +98,14 @@ def test_question_records_thread_and_shows_discovered_clues(valid_case: Case) ->
     assert game.state.actions_left == MAX_ACTIONS - 2
 
 
+def test_case_summary_lists_suspects(valid_case: Case) -> None:
+    game, _ = make_game(valid_case)
+    result = game.case_summary()
+    assert result.ok
+    assert "butler_hobbs" in result.message
+    assert "Hobbs" in result.message  # id and name, so a solver can accuse by id
+
+
 def test_unknown_suspect_is_a_friendly_error(valid_case: Case) -> None:
     game, _ = make_game(valid_case)
     result = game.question("the_gardener", "Hello?")

@@ -197,10 +197,20 @@ class Game:
         return ActionResult(message=message, data={"rooms": rooms})
 
     def case_summary(self) -> ActionResult:
-        suspects = [p.id for p in self.case.suspects()]
+        victim = self.case.victim_person()
+        victim_name = victim.name if victim else self.case.victim
+        suspects = self.case.suspects()
+        suspect_list = ", ".join(f"{person.id} ({person.name})" for person in suspects)
         return ActionResult(
-            message=f"{self.case.title}. The victim is {self.case.victim}.",
-            data={"title": self.case.title, "suspects": suspects, "victim": self.case.victim},
+            message=(
+                f"{self.case.title}. Victim: {self.case.victim} ({victim_name}). "
+                f"Suspects you may question or accuse: {suspect_list}."
+            ),
+            data={
+                "title": self.case.title,
+                "victim": self.case.victim,
+                "suspects": [person.id for person in suspects],
+            },
         )
 
     def status(self) -> ActionResult:
