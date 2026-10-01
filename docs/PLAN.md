@@ -309,7 +309,7 @@ shipping on constrained hardware, cost controls.
 | M1 Case File | 🚧 | code + tests done; 10/10 cases valid (see docs/results/m1.md); paper-solving pending |
 | M2 One Suspect | ✅ | interrogate, pgvector memory, 4-node LangGraph; 10/10 injection-resistant (docs/results/m2.md) |
 | M3 World + MCP | ✅ | play + MCP tools + Postgres state; think only for the murderer (docs/results/m3.md) |
-| M4 Evals | 🚧 | truth/solver/evals + gates + CI done; 20-game numbers & hand labels pending |
+| M4 Evals | 🚧 | code + gates + CI done; run shows solve_rate 1.0 (too easy); 20-game run & hand labels pending |
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |
