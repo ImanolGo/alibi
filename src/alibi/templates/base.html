@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Alibi{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font: 16px/1.5 ui-serif, Georgia, serif; background: #14110f; color: #efe7dc; }
+    header { padding: 1rem 1.5rem; border-bottom: 1px solid #3a3128; }
+    header a { color: #e8c07d; text-decoration: none; font-weight: 700; letter-spacing: .04em; }
+    main { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
+    h1, h2, h3 { font-family: ui-sans-serif, system-ui, sans-serif; }
+    button { background: #3a2f22; color: #efe7dc; border: 1px solid #6b5638; border-radius: 6px; padding: .35rem .6rem; cursor: pointer; }
+    button:hover { background: #4b3c2b; }
+    input, select { background: #1e1a16; color: #efe7dc; border: 1px solid #4a3f31; border-radius: 6px; padding: .35rem; }
+    .muted { color: #a99b88; }
+    .status { display: flex; gap: 1rem; flex-wrap: wrap; padding: .6rem .8rem; border: 1px solid #3a3128; border-radius: 8px; margin-bottom: 1rem; }
+    .result { padding: .7rem .9rem; border-left: 4px solid #6b5638; background: #1e1a16; border-radius: 6px; margin-bottom: 1rem; white-space: pre-wrap; }
+    .result.bad { border-color: #a4523b; }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    section { margin-bottom: 1.4rem; }
+    .suspect { border: 1px solid #3a3128; border-radius: 8px; padding: .7rem; margin-bottom: .8rem; }
+    .suspect p { margin: .3rem 0; }
+    .suspect .detective { color: #9ec5e8; } .suspect .suspect { color: #e8c07d; }
+    details summary { cursor: pointer; color: #a99b88; }
+    .card { border: 1px solid #3a3128; border-radius: 8px; padding: 1rem; margin-bottom: .8rem; }
+    a { color: #e8c07d; }
+  </style>
+</head>
+<body>
+  <header><a href="/">ALIBI</a> <span class="muted">· a murder mystery where every suspect is an LLM</span></header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

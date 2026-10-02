@@ -336,6 +336,20 @@ def _resolve_case(case_path: Path | None) -> Case:
     return Case.model_validate_json(cases[-1].read_text(encoding="utf-8"))
 
 
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8000, "--port"),
+) -> None:
+    """Serve the web UI (FastAPI + Jinja + HTMX)."""
+    import uvicorn
+
+    from .web import create_app
+
+    _require_db()
+    uvicorn.run(create_app(), host=host, port=port)
+
+
 def _require_db() -> None:
     from sqlalchemy import text
 

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Alibi — new game{% endblock %}
+{% block content %}
+  <h1>The cases</h1>
+  <form method="post" action="/case/generate">
+    <button>Generate a new case</button>
+    <span class="muted">(uses the generator model; takes a minute)</span>
+  </form>
+
+  {% if not cases %}<p class="muted">No cases yet. Generate one above.</p>{% endif %}
+  {% for case in cases %}
+    <div class="card">
+      <h2>{{ case.title }}</h2>
+      <p class="muted">{{ case.setting }}</p>
+      <p>{{ case.persons | length }} people · {{ case.locations | length }} rooms · {{ case.clues | length }} clues · death at {{ case.time_of_death }}</p>
+      <form method="post" action="/games/{{ case.id }}">
+        <button>Start a game</button>
+      </form>
+    </div>
+  {% endfor %}
+{% endblock %}

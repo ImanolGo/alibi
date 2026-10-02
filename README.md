@@ -19,7 +19,7 @@ roadmap and milestone checklists live in [`docs/PLAN.md`](docs/PLAN.md).
 | M2 One Suspect | ✅ |
 | M3 World + MCP | ✅ |
 | M4 Evals | 🚧 (code + gates done; full 20-game numbers pending) |
-| M5 Detector + Web + Homelab | 🚧 (Docker/homelab deploy started) |
+| M5 Detector + Web + Homelab | 🚧 (web UI done; deploy started; detector + training pending) |
 
 ## Quickstart
 
@@ -149,6 +149,17 @@ Or at the deployed HTTP endpoint: `{ "type": "http", "url": "http://<vm>:8080/mc
 
 Tools: `case_summary`, `status`, `list_rooms`, `search_room`, `inspect`,
 `question`, `lie_detector` (stub until M5), `accuse`.
+
+## Play in the browser
+
+```bash
+uv run alibi web        # http://127.0.0.1:8000
+```
+
+FastAPI + Jinja + HTMX, no JS build step. Generate a case (or pick one), search
+rooms, inspect the evidence, question suspects — presenting evidence when you
+have it — then accuse, and read "what really happened". The same `Game` object
+backs the web, CLI and MCP server, so a game is shared across all three.
 
 ## Evals
 
