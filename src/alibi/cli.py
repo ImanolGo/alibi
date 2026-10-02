@@ -336,6 +336,22 @@ def _resolve_case(case_path: Path | None) -> Case:
     return Case.model_validate_json(cases[-1].read_text(encoding="utf-8"))
 
 
+def _require_db() -> None:
+    from sqlalchemy import text
+
+    from .db import get_engine, init_db
+
+    try:
+        engine = get_engine()
+        init_db(engine)
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - surface a friendly message
+        console.print(f"[red]Database unavailable:[/red] {exc}")
+        console.print("[dim]Run `make up` and check ALIBI_DATABASE_URL in .env.[/dim]")
+        raise typer.Exit(code=3) from exc
+
+
 def _make_game_store() -> SqlGameStore:
     from .db import get_engine, get_session_factory, init_db
 
@@ -397,6 +413,7 @@ def eval(
     gate: bool = typer.Option(False, "--gate", help="Exit non-zero if a gate is violated."),
 ) -> None:
     """Generate cases, let the solver play, and report the metrics."""
+    _require_db()
     records = run_eval(games, seed=seed)
     metrics = compute_metrics(records)
     failures = check_gates(metrics, load_gates())
