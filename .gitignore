@@ -11,5 +11,7 @@ build/
 
 # Generated artefacts
 cases/
+ml/data/
+ml/model/
 *.onnx
 docs/results/eval-*.md

@@ -275,7 +275,7 @@ and run it all on the N150.
 - [ ] Detector inference < 100 ms per statement on the N150.
 - [ ] A friend can play a full game in the browser without instructions.
 - [ ] Deployed stack uses < 2 GB RAM (`docker stats` screenshot in docs).
-- [ ] Spend cap tested: exceeding it shows a friendly "the detective is
+- [x] Spend cap tested: exceeding it shows a friendly "the detective is
       out of budget today" message.
 - [ ] README: GIF, 3-command quickstart, architecture diagram, results table
       (M4 metrics + detector vs baselines), link to the demo.
@@ -313,4 +313,4 @@ shipping on constrained hardware, cost controls.
 | M2 One Suspect | ⬜ | |
 | M3 World + MCP | ⬜ | |
 | M4 Evals | ⬜ | |
-| M5 Detector + Web + Homelab | ⬜ | |
+| M5 Detector + Web + Homelab | 🚧 | web UI + export + ONNX serving + deploy done; fine-tune pending (docs/results/m5.md) |

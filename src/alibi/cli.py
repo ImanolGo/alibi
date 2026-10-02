@@ -26,7 +26,7 @@ from .evals import (
 )
 from .game import ActionResult, Game, SqlGameStore, load_or_create_game
 from .generator import generate_valid_case
-from .llm import complete_with_usage, spend_today
+from .llm import BudgetExceededError, complete_with_usage, spend_today
 from .memory import SqlMemoryStore
 from .suspect import SuspectAgent
 from .tracing import init_tracing
@@ -350,6 +350,28 @@ def web(
     uvicorn.run(create_app(), host=host, port=port)
 
 
+@app.command()
+def export_dataset(
+    out: Path = typer.Option(Path("ml/data"), "--out", help="Directory for JSONL splits."),
+    val_frac: float = typer.Option(0.1, "--val-frac"),
+    test_frac: float = typer.Option(0.1, "--test-frac"),
+    seed: int = typer.Option(42, "--seed"),
+) -> None:
+    """Export labelled claims as train/val/test JSONL, split by case (no leakage)."""
+    from .export import export_dataset as run_export
+
+    _require_db()
+    counts = run_export(out, val_frac=val_frac, test_frac=test_frac, seed=seed)
+    total = sum(counts.values())
+    console.print(
+        f"Exported {total} statements to {out}: " + ", ".join(f"{k}={v}" for k, v in counts.items())
+    )
+    if total < 1500:
+        console.print(
+            "[yellow]Fewer than 1500 statements — run more eval games for a better model.[/yellow]"
+        )
+
+
 def _require_db() -> None:
     from sqlalchemy import text
 
@@ -398,26 +420,37 @@ def _dispatch(game: Game, line: str) -> ActionResult | None:
     if command == "ask":
         if len(rest) < 2:
             return ActionResult(ok=False, message="usage: ask <suspect_id> <question>")
-        return game.question(rest[0], " ".join(rest[1:]))
+        return _safe_call(lambda: game.question(rest[0], " ".join(rest[1:])))
     if command == "show":
         # show <suspect_id> <clue_id> [<clue_id> ...]  — present evidence
         if len(rest) < 2:
             return ActionResult(
                 ok=False, message="usage: show <suspect_id> <clue_id> [clue_id ...]"
             )
-        return game.question(
-            rest[0],
-            "The detective lays this evidence before you and waits. What do you say?",
-            evidence=rest[1:],
+        return _safe_call(
+            lambda: game.question(
+                rest[0],
+                "The detective lays this evidence before you and waits. What do you say?",
+                evidence=rest[1:],
+            )
         )
     if command == "detector":
-        return game.lie_detector()
+        return game.lie_detector(rest[0] if rest else None)
     if command == "accuse":
         if not rest:
             return ActionResult(ok=False, message="usage: accuse <suspect_id> [motive]")
         motive = " ".join(rest[1:]) or None
         return game.accuse(rest[0], motive)
     return ActionResult(ok=False, message=f"Unknown command {command!r}. Try: {PLAY_HELP}")
+
+
+def _safe_call(action) -> ActionResult:
+    try:
+        return action()
+    except BudgetExceededError:
+        return ActionResult(
+            ok=False, message="The detective is out of budget today — come back tomorrow."
+        )
 
 
 @app.command()

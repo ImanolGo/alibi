@@ -23,13 +23,10 @@ class FakeResponder:
 
 def make_client(tmp_path: Path, case: Case, **kwargs) -> TestClient:
     (tmp_path / f"{case.id}.json").write_text(case.model_dump_json(), encoding="utf-8")
-    app = create_app(
-        game_store=InMemoryGameStore(),
-        responder_factory=lambda _case, _gid: FakeResponder(),
-        case_dir=tmp_path,
-        **kwargs,
-    )
-    return TestClient(app)
+    kwargs.setdefault("game_store", InMemoryGameStore())
+    kwargs.setdefault("responder_factory", lambda _case, _gid: FakeResponder())
+    kwargs.setdefault("case_dir", tmp_path)
+    return TestClient(create_app(**kwargs))
 
 
 @pytest.fixture
@@ -96,6 +93,28 @@ def test_reveal_page_shows_the_truth(client: TestClient, valid_case: Case) -> No
     assert response.status_code == 200
     assert "What really happened" in response.text
     assert "Hobbs" in response.text
+
+
+class BrokeResponder:
+    def set_clues(self, suspect_id: str, clue_ids: list[str]) -> None: ...
+
+    def answer(self, suspect_id: str, question: str) -> str:
+        from alibi.llm import BudgetExceededError
+
+        raise BudgetExceededError("daily budget reached")
+
+
+def test_spend_cap_shows_a_friendly_message(tmp_path: Path, valid_case: Case) -> None:
+    client = make_client(
+        tmp_path, valid_case, responder_factory=lambda _case, _gid: BrokeResponder()
+    )
+    client.post(f"/games/{valid_case.id}")
+    response = client.post(
+        f"/games/{valid_case.id}/question",
+        data={"suspect_id": "lady_blackwood", "text": "Where were you?"},
+    )
+    assert response.status_code == 200
+    assert "out of budget" in response.text
 
 
 def test_generating_a_case_uses_the_injected_generator(tmp_path: Path, valid_case: Case) -> None:

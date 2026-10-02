@@ -75,6 +75,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "litellm" },
     { name = "mcp" },
+    { name = "onnxruntime" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
@@ -86,6 +87,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "sqlalchemy" },
+    { name = "tokenizers" },
     { name = "typer" },
     { name = "uvicorn" },
 ]
@@ -113,6 +115,7 @@ requires-dist = [
     { name = "langgraph", specifier = ">=0.2" },
     { name = "litellm", specifier = ">=1.55" },
     { name = "mcp", specifier = ">=1.2" },
+    { name = "onnxruntime", specifier = ">=1.19" },
     { name = "opentelemetry-api", specifier = ">=1.27" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.27" },
     { name = "opentelemetry-sdk", specifier = ">=1.27" },
@@ -124,6 +127,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rich", specifier = ">=13.9" },
     { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "tokenizers", specifier = ">=0.20" },
     { name = "typer", specifier = ">=0.12" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]

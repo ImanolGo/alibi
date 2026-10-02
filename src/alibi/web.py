@@ -19,6 +19,7 @@ from .case import Case
 from .config import get_settings
 from .game import ActionResult, Game, GameStore, Responder, SqlGameStore
 from .generator import generate_valid_case
+from .llm import BudgetExceededError
 from .suspect import SuspectTeam
 
 log = logging.getLogger(__name__)
@@ -94,6 +95,15 @@ def create_app(
             request, "partials/board.html", {"game": game, "result": result}
         )
 
+    def safe(action: Callable[[], ActionResult]) -> ActionResult:
+        try:
+            return action()
+        except BudgetExceededError:
+            return ActionResult(
+                ok=False,
+                message="The detective is out of budget today — come back tomorrow.",
+            )
+
     # -- routes -------------------------------------------------------------
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> Response:
@@ -126,14 +136,14 @@ def create_app(
         game = get_game(game_id)
         if game is None:
             return RedirectResponse(url="/", status_code=303)
-        return board(request, game, game.search_room(room_id))
+        return board(request, game, safe(lambda: game.search_room(room_id)))
 
     @app.post("/games/{game_id}/inspect", response_class=HTMLResponse)
     def inspect_clue(request: Request, game_id: str, clue_id: str = Form(...)) -> Response:
         game = get_game(game_id)
         if game is None:
             return RedirectResponse(url="/", status_code=303)
-        return board(request, game, game.inspect(clue_id))
+        return board(request, game, safe(lambda: game.inspect(clue_id)))
 
     @app.post("/games/{game_id}/question", response_class=HTMLResponse)
     def question(
@@ -146,7 +156,7 @@ def create_app(
         game = get_game(game_id)
         if game is None:
             return RedirectResponse(url="/", status_code=303)
-        return board(request, game, game.question(suspect_id, text, evidence))
+        return board(request, game, safe(lambda: game.question(suspect_id, text, evidence)))
 
     @app.post("/games/{game_id}/accuse", response_class=HTMLResponse)
     def accuse(
@@ -158,7 +168,7 @@ def create_app(
         game = get_game(game_id)
         if game is None:
             return RedirectResponse(url="/", status_code=303)
-        return board(request, game, game.accuse(suspect_id, motive or None))
+        return board(request, game, safe(lambda: game.accuse(suspect_id, motive or None)))
 
     @app.get("/games/{game_id}/reveal", response_class=HTMLResponse)
     def reveal(request: Request, game_id: str) -> Response:

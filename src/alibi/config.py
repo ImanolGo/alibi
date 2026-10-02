@@ -43,6 +43,7 @@ class Settings(BaseModel):
     project_root: Path = PROJECT_ROOT
     cases_dir: Path = PROJECT_ROOT / "cases"
     setting_path: Path = PROJECT_ROOT / "config" / "setting.yaml"
+    detector_dir: Path = PROJECT_ROOT / "ml" / "model"
     phoenix_endpoint: str = "http://localhost:6006/v1/traces"
 
     @property
@@ -90,6 +91,7 @@ def get_settings() -> Settings:
         project_root=root,
         cases_dir=Path(os.environ.get("ALIBI_CASES_DIR", str(root / "cases"))),
         setting_path=Path(os.environ.get("ALIBI_SETTING", str(root / "config" / "setting.yaml"))),
+        detector_dir=Path(os.environ.get("ALIBI_DETECTOR_DIR", str(root / "ml" / "model"))),
         phoenix_endpoint=os.environ.get(
             "ALIBI_PHOENIX_ENDPOINT", "http://localhost:6006/v1/traces"
         ),
