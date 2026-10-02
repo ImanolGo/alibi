@@ -30,6 +30,7 @@ class SolverAction(BaseModel):
     clue_id: str | None = None
     suspect_id: str | None = None
     text: str | None = None
+    evidence: list[str] | None = None
     motive: str | None = None
     reasoning: str = ""
 
@@ -106,7 +107,7 @@ class SolverAgent:
         if action.kind == "inspect" and action.clue_id:
             return self.game.inspect(action.clue_id)
         if action.kind == "question" and action.suspect_id and action.text:
-            return self.game.question(action.suspect_id, action.text)
+            return self.game.question(action.suspect_id, action.text, action.evidence)
         if action.kind == "accuse" and action.suspect_id:
             return self.game.accuse(action.suspect_id, action.motive)
         if action.kind == "status":
@@ -122,7 +123,7 @@ class SolverAgent:
     @staticmethod
     def _describe(action: SolverAction) -> str:
         parts: list[str] = [action.kind]
-        for field in ("room_id", "clue_id", "suspect_id", "text", "motive"):
+        for field in ("room_id", "clue_id", "suspect_id", "text", "evidence", "motive"):
             value = getattr(action, field)
             if value:
                 parts.append(f"{field}={value!r}")

@@ -42,6 +42,7 @@ class GameState(BaseModel):
     actions_left: int = MAX_ACTIONS
     discovered_clues: list[str] = Field(default_factory=list)
     examined_clues: list[str] = Field(default_factory=list)
+    presented: dict[str, list[str]] = Field(default_factory=dict)
     lie_detector_used: int = 0
     conversations: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
     accused: str | None = None
@@ -230,8 +231,10 @@ class Game:
     def inspect(self, clue_id: str) -> ActionResult:
         return self._run("inspect", clue_id=clue_id)
 
-    def question(self, suspect_id: str, text: str) -> ActionResult:
-        return self._run("question", suspect_id=suspect_id, text=text)
+    def question(
+        self, suspect_id: str, text: str, evidence: list[str] | None = None
+    ) -> ActionResult:
+        return self._run("question", suspect_id=suspect_id, text=text, evidence=evidence or [])
 
     def lie_detector(self) -> ActionResult:
         return self._run("detector")
@@ -314,6 +317,11 @@ class Game:
                 return f"No such suspect {action['suspect_id']!r}."
             if not action.get("text", "").strip():
                 return "You must actually ask something."
+            for clue_id in action.get("evidence", []):
+                if self.case.clue(clue_id) is None:
+                    return f"No such clue {clue_id!r}."
+                if clue_id not in self.state.discovered_clues:
+                    return f"You cannot present {clue_id!r} — you have not found it yet."
         elif kind == "accuse":
             if self.case.person(action["suspect_id"]) is None:
                 return f"No such suspect {action['suspect_id']!r}."
@@ -329,7 +337,7 @@ class Game:
         if kind == "inspect":
             return self._inspect(action["clue_id"])
         if kind == "question":
-            return self._question(action["suspect_id"], action["text"])
+            return self._question(action["suspect_id"], action["text"], action.get("evidence", []))
         if kind == "detector":
             return self._detector()
         if kind == "accuse":
@@ -364,13 +372,22 @@ class Game:
             data={"red_herring": clue.is_red_herring},
         )
 
-    def _question(self, suspect_id: str, text: str) -> ActionResult:
-        self.responder.set_clues(suspect_id, self.state.discovered_clues)
+    def _question(self, suspect_id: str, text: str, evidence: list[str]) -> ActionResult:
+        # Only clues the detective actually presents count as "shown" to the
+        # suspect. Finding a clue is not the same as confronting someone with it.
+        presented = self.state.presented.setdefault(suspect_id, [])
+        for clue_id in evidence:
+            if clue_id not in presented:
+                presented.append(clue_id)
+        self.responder.set_clues(suspect_id, list(presented))
         answer = self.responder.answer(suspect_id, text)
         thread = self.state.conversations.setdefault(suspect_id, [])
         thread.append({"role": "detective", "content": text})
         thread.append({"role": "suspect", "content": answer})
-        return ActionResult(message=answer, data={"suspect": suspect_id})
+        return ActionResult(
+            message=answer,
+            data={"suspect": suspect_id, "evidence_presented": list(presented)},
+        )
 
     def _detector(self) -> ActionResult:
         self.state.lie_detector_used += 1

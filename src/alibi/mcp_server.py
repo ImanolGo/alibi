@@ -53,9 +53,11 @@ def build_server(game: Game, *, name: str = "alibi") -> MCPServer:
         return _text(game.inspect(clue_id))
 
     @server.tool()
-    def question(suspect_id: str, text: str) -> str:
-        """Ask a suspect a question (costs 1 action). They stay in character and may lie."""
-        return _text(game.question(suspect_id, text))
+    def question(suspect_id: str, text: str, evidence: list[str] | None = None) -> str:
+        """Ask a suspect a question (costs 1 action). Pass `evidence` = clue ids you
+        have found to confront them with it. A suspect only breaks when actually
+        shown the evidence, so finding a clue is not enough — you must present it."""
+        return _text(game.question(suspect_id, text, evidence))
 
     @server.tool()
     def lie_detector() -> str:

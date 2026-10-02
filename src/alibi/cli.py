@@ -246,8 +246,8 @@ def _render_case(case_obj, violations: list[Violation]) -> Group:
 
 
 PLAY_HELP = (
-    "rooms · search <room_id> · inspect <clue_id> · ask <suspect_id> <question> · "
-    "detector · accuse <suspect_id> [motive] · status · quit"
+    "rooms · search <room_id> · inspect <clue_id> · show <suspect_id> <clue_id…> · "
+    "ask <suspect_id> <question> · detector · accuse <suspect_id> [motive] · status · quit"
 )
 
 
@@ -369,6 +369,17 @@ def _dispatch(game: Game, line: str) -> ActionResult | None:
         if len(rest) < 2:
             return ActionResult(ok=False, message="usage: ask <suspect_id> <question>")
         return game.question(rest[0], " ".join(rest[1:]))
+    if command == "show":
+        # show <suspect_id> <clue_id> [<clue_id> ...]  — present evidence
+        if len(rest) < 2:
+            return ActionResult(
+                ok=False, message="usage: show <suspect_id> <clue_id> [clue_id ...]"
+            )
+        return game.question(
+            rest[0],
+            "The detective lays this evidence before you and waits. What do you say?",
+            evidence=rest[1:],
+        )
     if command == "detector":
         return game.lie_detector()
     if command == "accuse":

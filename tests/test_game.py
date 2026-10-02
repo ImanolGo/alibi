@@ -85,18 +85,37 @@ def test_searching_an_empty_room_is_fine(valid_case: Case) -> None:
 
 
 # --- questioning -----------------------------------------------------------
-def test_question_records_thread_and_shows_discovered_clues(valid_case: Case) -> None:
+def test_question_records_thread_but_alone_shows_no_clues(valid_case: Case) -> None:
     game, responder = make_game(valid_case)
     game.search_room("library")
     result = game.question("lady_blackwood", "Where were you at ten?")
 
     assert result.ok
     assert responder.calls == [("lady_blackwood", "Where were you at ten?")]
-    assert responder.clues["lady_blackwood"] == ["clue_ash", "clue_cufflink"]
+    # Finding a clue is not the same as showing it.
+    assert responder.clues["lady_blackwood"] == []
+    assert game.state.presented.get("lady_blackwood", []) == []
     thread = game.state.conversations["lady_blackwood"]
     assert thread[0] == {"role": "detective", "content": "Where were you at ten?"}
     assert thread[1]["role"] == "suspect"
     assert game.state.actions_left == MAX_ACTIONS - 2
+
+
+def test_presenting_evidence_shows_only_what_is_presented(valid_case: Case) -> None:
+    game, responder = make_game(valid_case)
+    game.search_room("library")  # clue_ash, clue_cufflink
+    result = game.question("lady_blackwood", "Explain this.", evidence=["clue_ash"])
+
+    assert result.ok
+    assert result.data["evidence_presented"] == ["clue_ash"]
+    assert responder.clues["lady_blackwood"] == ["clue_ash"]
+
+
+def test_evidence_must_be_discovered_first(valid_case: Case) -> None:
+    game, _ = make_game(valid_case)
+    result = game.question("lady_blackwood", "Explain.", evidence=["clue_ash"])
+    assert not result.ok and "not found" in result.message
+    assert game.state.actions_left == MAX_ACTIONS
 
 
 def test_case_summary_lists_suspects(valid_case: Case) -> None:

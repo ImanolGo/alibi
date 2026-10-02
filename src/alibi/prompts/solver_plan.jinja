@@ -20,7 +20,10 @@ Choose your next single action. Valid kinds and their arguments:
 
 - search_room(room_id): look for clues in a room. Costs an action.
 - inspect(clue_id): examine a clue you have already found. Costs an action.
-- question(suspect_id, text): interrogate a suspect. Costs an action.
+- question(suspect_id, text, evidence): interrogate a suspect. Costs an action.
+  `evidence` is a list of clue ids you have found and want to present to them.
+  A suspect only breaks when you actually show them evidence — finding a clue is
+  not enough, you must present it. Leave `evidence` empty just to ask.
 - status: review your position. Free.
 - accuse(suspect_id, motive): name the person who did it and end the game.
 
