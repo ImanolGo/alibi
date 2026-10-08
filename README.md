@@ -18,8 +18,8 @@ roadmap and milestone checklists live in [`docs/PLAN.md`](docs/PLAN.md).
 | M1 The Case File | 🚧 (10/10 cases generate; paper-solving pending) |
 | M2 One Suspect | ✅ |
 | M3 World + MCP | ✅ |
-| M4 Evals | 🚧 (code + gates done; full 20-game numbers pending) |
-| M5 Detector + Web + Homelab | 🚧 (web UI done; deploy started; detector + training pending) |
+| M4 Evals | ✅ (20-game run + gates; hand-label check pending) |
+| M5 Detector + Web + Homelab | 🚧 (code + deploy done; fine-tune, demo GIF and docker-stats pending) |
 
 ## Quickstart
 
@@ -34,6 +34,13 @@ uv run alibi interrogate --case cases/<id>.json --suspect <id> --debug
 uv run alibi play --case cases/<id>.json --new
 make test && make lint
 ```
+
+## Demo
+
+<!-- Record a short game with `uv run alibi web` and drop it here:
+![Alibi in the browser](assets/alibi-demo.gif)
+-->
+_Demo GIF: to record (a browser game is the best clip). Live demo: `<link to fill in>`._
 
 ## Architecture
 
@@ -87,7 +94,7 @@ Every choice is here to teach one thing. The "why" is the point.
 Each milestone adds one concept; see `docs/results/` for the measured outcomes.
 
 1. **M1 — structured output + validation.** One LLM call fills a Pydantic `Case`
-   from `config/setting.yaml`; a deterministic validator checks six rules and a
+   from `config/setting.yaml`; a deterministic validator checks seven rules and a
    bounded repair loop feeds violations back to the model. Creativity is the
    model's job; correctness is the code's. (`case.py`, `generator.py`,
    `validator.py`)
@@ -105,6 +112,37 @@ Each milestone adds one concept; see `docs/results/` for the measured outcomes.
 5. **M5 — detector, web UI, homelab.** A tiny DistilBERT fine-tuned on our own
    TRUE/FALSE claims, exported to ONNX, plus a browser UI and the deployment
    below.
+
+## Results
+
+Measured numbers (full write-ups in [`docs/results/`](docs/results/)).
+
+**Game quality — 20-game eval** (`uv run alibi eval --games 20 --gate`):
+
+| Metric | Value | Gate |
+|---|---|---|
+| case_valid_rate | 1.000 | ≥ 0.80 |
+| solve_rate | 0.850 | 0.40–0.85 |
+| contradiction_rate | 0.029 | < 0.08 |
+| early_confession_rate | 0.000 | < 0.10 |
+| cost_per_game | $0.030 | ≤ $0.50 |
+
+Honest caveat: the raw `solve_rate` counts timed-out games as losses; of the
+games it finished, the auto-solver won **17/17**. A capable model finds a
+four-suspect mystery too easy — the number that matters for a game is the human
+one, which the browser UI provides. See [`docs/results/m4.md`](docs/results/m4.md).
+
+**Lie detector vs baselines** (one statement, no case context; 30-statement sample):
+
+| Model | F1 (lie) | Latency | Cost / prediction |
+|---|---|---|---|
+| always-TRUE | 0.000 | — | — |
+| majority | 0.000 | — | — |
+| LLM judge | 0.182 | 7.7 s | $0.00022 |
+| fine-tuned ONNX | _to train_ | aim < 0.1 s | ~$0 |
+
+Baselines: `uv run alibi baselines --data ml/data/test.jsonl`. Details and the
+training run live in [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md).
 
 ## Deploy (Docker / homelab)
 
@@ -148,7 +186,7 @@ The whole game is exposed as MCP tools. Point any client at the stdio server:
 Or at the deployed HTTP endpoint: `{ "type": "http", "url": "http://<vm>:8080/mcp" }`.
 
 Tools: `case_summary`, `status`, `list_rooms`, `search_room`, `inspect`,
-`question`, `lie_detector` (stub until M5), `accuse`.
+`question`, `lie_detector`, `accuse`.
 
 ## Play in the browser
 
@@ -174,11 +212,16 @@ runs a 5-game gate on PRs touching `src/alibi/prompts/**` or `suspect.py` and
 comments the summary on the PR. The gate is exercised by deliberately breaking a
 suspect prompt: _<link to the closed "broken prompt" PR here>_.
 
+`alibi export-dataset` turns the stored labels into fine-tuning JSONL (split by
+case, no leakage); `alibi baselines` scores always-TRUE, majority and the LLM
+judge for comparison with the fine-tuned detector.
+
 ## Layout
 
 ```
 src/alibi/        case · generator · validator · knowledge · llm · memory
-                  suspect · game · mcp_server · solver · truth · evals · cli
+                  suspect · game · mcp_server · solver · truth · evals
+                  detector · export · baselines · web · templates · cli
 config/           models.yaml (role → model) · setting.yaml · gates.yaml
 tests/            deterministic tests only (no network; FakeLLM)
 ml/               dataset export + training (M5; never installed on the server)
