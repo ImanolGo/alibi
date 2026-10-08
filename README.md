@@ -210,7 +210,8 @@ Metrics (`config/gates.yaml`): `case_valid_rate`, `solve_rate`,
 `contradiction_rate`, `early_confession_rate`, `cost_per_game`. A GitHub Action
 runs a 5-game gate on PRs touching `src/alibi/prompts/**` or `suspect.py` and
 comments the summary on the PR. The gate is exercised by deliberately breaking a
-suspect prompt: _<link to the closed "broken prompt" PR here>_.
+suspect prompt: see the closed
+[broken-prompt PR #3](https://github.com/ImanolGo/alibi/pull/3).
 
 `alibi export-dataset` turns the stored labels into fine-tuning JSONL (split by
 case, no leakage); `alibi baselines` scores always-TRUE, majority and the LLM

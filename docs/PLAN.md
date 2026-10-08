@@ -233,7 +233,8 @@ consistent deception, why hidden reasoning helps.
 - [x] Solver can't access ground truth (test on its inputs).
 - [x] Labeller vs your 30 hand labels: agreement reported — **90%** (see
       `docs/results/m4_labels.md`).
-- [ ] A deliberately broken suspect prompt makes the CI gate fail. Keep that PR (closed) and link it in the README.
+- [x] A deliberately broken suspect prompt makes the CI gate fail. Kept as the
+      closed [PR #3](https://github.com/ImanolGo/alibi/pull/3) (contradiction_rate 0.110 > 0.08).
 - [x] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
 
 **Learn:** simulation-based evals, LLM-as-judge and checking the judge,
