@@ -276,7 +276,7 @@ and run it all on the N150.
       judge reported honestly (quality, latency, cost per prediction).
 - [x] Detector inference < 100 ms per statement on the N150 (73 ms).
 - [ ] A friend can play a full game in the browser without instructions.
-- [x] Deployed stack uses < 2 GB RAM (measured ~759 MB; `docker stats`).
+- [x] Deployed stack uses < 2 GB RAM (measured ~590 MB; `docker stats`).
 - [x] Spend cap tested: exceeding it shows a friendly "the detective is
       out of budget today" message.
 - [ ] README: GIF, 3-command quickstart, architecture diagram, results table

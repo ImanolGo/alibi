@@ -98,8 +98,8 @@ make deploy   # rebuilds the app image; volumes are preserved
 | Service | `mem_limit` | measured |
 |---|---|---|
 | Postgres + pgvector | 350 MB | ~79 MB |
-| Phoenix | 600 MB | ~450 MB |
+| Phoenix | 600 MB | ~283 MB |
 | App (web UI) | 400 MB | ~117 MB |
-| MCP server | 400 MB | ~113 MB |
+| MCP server | 400 MB | ~111 MB |
 | OS + Docker | ~400 MB | — |
-| **Alibi total** | | **~759 MB** |
+| **Alibi total** | | **~590 MB** |

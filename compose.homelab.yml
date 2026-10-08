@@ -53,6 +53,8 @@ services:
       # ALIBI_CASE: /app/cases/my-case.json   # optional; default is the newest
     volumes:
       - alibi_cases:/app/cases
+      # the int8 lie-detector model (trained offline); optional
+      - ./ml/model:/app/ml/model:ro
     ports:
       - "8080:8080" # web UI
     mem_limit: 400m
@@ -68,6 +70,8 @@ services:
     environment: *alibi-env
     volumes:
       - alibi_cases:/app/cases
+      # the int8 lie-detector model (trained offline); optional
+      - ./ml/model:/app/ml/model:ro
     ports:
       - "8089:8089" # MCP over streamable HTTP
     mem_limit: 400m
