@@ -57,6 +57,14 @@ services:
       - ./ml/model:/app/ml/model:ro
     ports:
       - "8080:8080" # web UI
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/').read()"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     mem_limit: 400m
     restart: unless-stopped
 
@@ -74,6 +82,14 @@ services:
       - ./ml/model:/app/ml/model:ro
     ports:
       - "8089:8089" # MCP over streamable HTTP
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import socket; socket.create_connection(('127.0.0.1', 8089), 2)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     mem_limit: 400m
     restart: unless-stopped
 
