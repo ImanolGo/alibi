@@ -17,14 +17,23 @@ A small sequence classifier that reads one statement and decides whether it is
 - Base model: `distilbert-base-uncased`, max length 128.
 - Fine-tuning: `ml/train.ipynb` (Colab/Kaggle, one click) or `ml/train.py`.
 
-## Results (validation)
+## Results (test split)
 
-| Model | F1 (lie) | Precision | Recall |
+Baselines come from `alibi baselines --data ml/data/test.jsonl`; the fine-tuned
+numbers come from `ml/train.ipynb`. The LLM judge sees the same input as the
+model (one statement, no case context), so it is a deliberately hard baseline.
+
+| Model | F1 (lie) | Latency | Cost / prediction |
 |---|---|---|---|
-| always-TRUE baseline | TODO | TODO | TODO |
-| majority baseline | TODO | TODO | TODO |
-| LLM judge (`truth.py`) | TODO | TODO | TODO |
-| **fine-tuned (this model)** | **TODO** | TODO | TODO |
+| always-TRUE baseline | 0.000 | — | — |
+| majority baseline | 0.000 | — | — |
+| LLM judge (`alibi baselines`) | 0.182 | 7.7 s | $0.00022 |
+| **fine-tuned ONNX (this model)** | **TODO** | aim < 0.1 s | ~$0 |
+
+> The LLM judge number is a 30-statement sample; the always-TRUE/majority F1 of
+> 0 means the test split is balanced enough that guessing one class scores
+> nothing on the lie class. Every model must beat chance on the statements
+> alone — which is the point of a fine-tuned specialist.
 
 ## Serving
 
