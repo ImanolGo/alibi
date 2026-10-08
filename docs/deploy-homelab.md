@@ -95,10 +95,11 @@ make deploy   # rebuilds the app image; volumes are preserved
 
 ## Memory budget
 
-| Service | `mem_limit` |
-|---|---|
-| Postgres + pgvector | 350 MB |
-| Phoenix | 450 MB |
-| App (FastAPI + ONNX detector later) | 400 MB |
-| OS + Docker | ~400 MB |
-| **Total** | **< 2 GB** |
+| Service | `mem_limit` | measured |
+|---|---|---|
+| Postgres + pgvector | 350 MB | ~79 MB |
+| Phoenix | 600 MB | ~450 MB |
+| App (web UI) | 400 MB | ~117 MB |
+| MCP server | 400 MB | ~113 MB |
+| OS + Docker | ~400 MB | — |
+| **Alibi total** | | **~759 MB** |

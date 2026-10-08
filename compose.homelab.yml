@@ -31,7 +31,7 @@ services:
       - phoenix_data:/data
     ports:
       - "6006:6006" # local-only view of traces
-    mem_limit: 450m
+    mem_limit: 600m
     restart: unless-stopped
 
   app:
@@ -59,9 +59,7 @@ services:
     restart: unless-stopped
 
   mcp:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: alibi:local
     command:
       ["alibi", "mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8089"]
     depends_on:

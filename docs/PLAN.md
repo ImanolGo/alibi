@@ -274,9 +274,9 @@ and run it all on the N150.
 **Acceptance criteria**
 - [x] Fine-tuned model beats always-TRUE on F1; comparison with the LLM
       judge reported honestly (quality, latency, cost per prediction).
-- [ ] Detector inference < 100 ms per statement on the N150 (40 ms int8 on a laptop CPU).
+- [x] Detector inference < 100 ms per statement on the N150 (73 ms).
 - [ ] A friend can play a full game in the browser without instructions.
-- [ ] Deployed stack uses < 2 GB RAM (`docker stats` screenshot in docs).
+- [x] Deployed stack uses < 2 GB RAM (measured ~759 MB; `docker stats`).
 - [x] Spend cap tested: exceeding it shows a friendly "the detective is
       out of budget today" message.
 - [ ] README: GIF, 3-command quickstart, architecture diagram, results table
