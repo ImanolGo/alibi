@@ -233,7 +233,8 @@ consistent deception, why hidden reasoning helps.
 - [x] Solver can't access ground truth (test on its inputs).
 - [x] Labeller vs your 30 hand labels: agreement reported — **90%** (see
       `docs/results/m4_labels.md`).
-- [ ] A deliberately broken suspect prompt makes the CI gate fail. Keep that PR (closed) and link it in the README.
+- [x] A deliberately broken suspect prompt makes the CI gate fail. Kept as the
+      closed [PR #3](https://github.com/ImanolGo/alibi/pull/3) (contradiction_rate 0.110 > 0.08).
 - [x] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
 
 **Learn:** simulation-based evals, LLM-as-judge and checking the judge,
@@ -273,9 +274,9 @@ and run it all on the N150.
 **Acceptance criteria**
 - [x] Fine-tuned model beats always-TRUE on F1; comparison with the LLM
       judge reported honestly (quality, latency, cost per prediction).
-- [ ] Detector inference < 100 ms per statement on the N150 (40 ms int8 on a laptop CPU).
+- [x] Detector inference < 100 ms per statement on the N150 (73 ms).
 - [ ] A friend can play a full game in the browser without instructions.
-- [ ] Deployed stack uses < 2 GB RAM (`docker stats` screenshot in docs).
+- [x] Deployed stack uses < 2 GB RAM (measured ~590 MB; `docker stats`).
 - [x] Spend cap tested: exceeding it shows a friendly "the detective is
       out of budget today" message.
 - [ ] README: GIF, 3-command quickstart, architecture diagram, results table

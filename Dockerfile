@@ -26,9 +26,6 @@ COPY config ./config
 RUN mkdir -p /app/cases
 
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-    CMD python -c "import socket; socket.create_connection(('127.0.0.1', 8080), 2)"
 
-# Serves the game as MCP tools over streamable HTTP. The case is the newest
-# file in /app/cases (or $ALIBI_CASE). Generate one with `alibi case`.
+# Serves the game over MCP by default while the app/web service serves the UI.
 CMD ["alibi", "mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8080"]

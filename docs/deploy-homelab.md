@@ -40,7 +40,9 @@ make deploy          # docker compose -f compose.homelab.yml up -d --build
 docker stats --no-stream   # confirm each service stays within its mem_limit
 ```
 
-- MCP endpoint: `http://<vm>:8080` (streamable HTTP).
+- MCP endpoint: `http://<vm>:8089` (streamable HTTP) — for OpenCode / Claude
+  Desktop.
+- Web UI: `http://<vm>:8080` — play in a browser.
 - Phoenix UI: `http://<vm>:6006` (keep this local; it shows your traces).
 
 ## 5. Point a client at it
@@ -50,7 +52,7 @@ OpenCode / Claude Desktop MCP config (HTTP):
 ```json
 {
   "mcpServers": {
-    "alibi": { "type": "http", "url": "http://<vm>:8080/mcp" }
+    "alibi": { "type": "http", "url": "http://<vm>:8089/mcp" }
   }
 }
 ```
@@ -93,10 +95,11 @@ make deploy   # rebuilds the app image; volumes are preserved
 
 ## Memory budget
 
-| Service | `mem_limit` |
-|---|---|
-| Postgres + pgvector | 350 MB |
-| Phoenix | 450 MB |
-| App (FastAPI + ONNX detector later) | 400 MB |
-| OS + Docker | ~400 MB |
-| **Total** | **< 2 GB** |
+| Service | `mem_limit` | measured |
+|---|---|---|
+| Postgres + pgvector | 350 MB | ~78 MB |
+| Phoenix | 600 MB | 280–590 MB (fluctuates) |
+| App (web UI) | 400 MB | ~98 MB |
+| MCP server | 400 MB | ~111 MB |
+| OS + Docker | ~400 MB | — |
+| **Alibi total** | | **~0.6–0.9 GB** |

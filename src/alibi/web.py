@@ -13,6 +13,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .case import Case
@@ -24,6 +25,7 @@ from .suspect import SuspectTeam
 
 log = logging.getLogger(__name__)
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 ResponderFactory = Callable[[Case, str], Responder]
 CaseGenerator = Callable[[], Case]
@@ -56,6 +58,7 @@ def create_app(
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
     app = FastAPI(title="Alibi")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     cache: dict[str, Game] = {}
 
     # -- helpers ------------------------------------------------------------

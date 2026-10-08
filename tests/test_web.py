@@ -117,6 +117,12 @@ def test_spend_cap_shows_a_friendly_message(tmp_path: Path, valid_case: Case) ->
     assert "out of budget" in response.text
 
 
+def test_serves_htmx_locally(client: TestClient) -> None:
+    response = client.get("/static/htmx.min.js")
+    assert response.status_code == 200
+    assert "htmx" in response.text
+
+
 def test_generating_a_case_uses_the_injected_generator(tmp_path: Path, valid_case: Case) -> None:
     client = make_client(tmp_path, valid_case, case_generator=lambda: valid_case)
     response = client.post("/case/generate", follow_redirects=True)

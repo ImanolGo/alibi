@@ -2,6 +2,10 @@
 #   docker compose -f compose.homelab.yml up -d --build
 # Generate a case once (uses the mounted cases volume):
 #   docker compose -f compose.homelab.yml run --rm app alibi case --seed 1
+#
+# Services:
+#   app  — the web UI (play in a browser) on :8080
+#   mcp  — the same game as MCP tools over streamable HTTP on :8089
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -27,17 +31,19 @@ services:
       - phoenix_data:/data
     ports:
       - "6006:6006" # local-only view of traces
-    mem_limit: 450m
+    mem_limit: 600m
     restart: unless-stopped
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    image: alibi:local
+    command: ["alibi", "web", "--host", "0.0.0.0", "--port", "8080"]
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
+    environment: &alibi-env
       ALIBI_ROOT: /app
       ALIBI_DATABASE_URL: postgresql+psycopg://alibi:alibi@postgres:5432/alibi
       ALIBI_PHOENIX_ENDPOINT: http://phoenix:6006/v1/traces
@@ -47,8 +53,43 @@ services:
       # ALIBI_CASE: /app/cases/my-case.json   # optional; default is the newest
     volumes:
       - alibi_cases:/app/cases
+      # the int8 lie-detector model (trained offline); optional
+      - ./ml/model:/app/ml/model:ro
     ports:
-      - "8080:8080" # MCP over streamable HTTP
+      - "8080:8080" # web UI
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/').read()"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 400m
+    restart: unless-stopped
+
+  mcp:
+    image: alibi:local
+    command:
+      ["alibi", "mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8089"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *alibi-env
+    volumes:
+      - alibi_cases:/app/cases
+      # the int8 lie-detector model (trained offline); optional
+      - ./ml/model:/app/ml/model:ro
+    ports:
+      - "8089:8089" # MCP over streamable HTTP
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import socket; socket.create_connection(('127.0.0.1', 8089), 2)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     mem_limit: 400m
     restart: unless-stopped
 
