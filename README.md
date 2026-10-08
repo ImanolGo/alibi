@@ -146,9 +146,10 @@ training run live in [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md).
 
 ## Deploy (Docker / homelab)
 
-The app is one small image (`python:3.12-slim`, no torch) served as MCP over
-streamable HTTP, alongside Postgres and Phoenix — sized to stay under ~2 GB on
-an Intel N150 with no GPU.
+The app is one small image (`python:3.12-slim`, no torch), alongside Postgres
+and Phoenix — sized to stay under ~2 GB on an Intel N150 with no GPU. Compose
+runs it twice: the **web UI** on `:8080` (play in a browser) and the same game
+as **MCP over streamable HTTP** on `:8089`.
 
 ```bash
 cp .env.example .env                      # set OPENROUTER_API_KEY (+ low budget)
@@ -183,7 +184,7 @@ The whole game is exposed as MCP tools. Point any client at the stdio server:
 }
 ```
 
-Or at the deployed HTTP endpoint: `{ "type": "http", "url": "http://<vm>:8080/mcp" }`.
+Or at the deployed HTTP endpoint: `{ "type": "http", "url": "http://<vm>:8089/mcp" }`.
 
 Tools: `case_summary`, `status`, `list_rooms`, `search_room`, `inspect`,
 `question`, `lie_detector`, `accuse`.

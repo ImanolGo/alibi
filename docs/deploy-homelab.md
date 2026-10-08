@@ -40,7 +40,9 @@ make deploy          # docker compose -f compose.homelab.yml up -d --build
 docker stats --no-stream   # confirm each service stays within its mem_limit
 ```
 
-- MCP endpoint: `http://<vm>:8080` (streamable HTTP).
+- MCP endpoint: `http://<vm>:8089` (streamable HTTP) — for OpenCode / Claude
+  Desktop.
+- Web UI: `http://<vm>:8080` — play in a browser.
 - Phoenix UI: `http://<vm>:6006` (keep this local; it shows your traces).
 
 ## 5. Point a client at it
@@ -50,7 +52,7 @@ OpenCode / Claude Desktop MCP config (HTTP):
 ```json
 {
   "mcpServers": {
-    "alibi": { "type": "http", "url": "http://<vm>:8080/mcp" }
+    "alibi": { "type": "http", "url": "http://<vm>:8089/mcp" }
   }
 }
 ```
