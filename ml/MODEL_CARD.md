@@ -15,6 +15,7 @@ A small sequence classifier that reads one statement and decides whether it is
 - Split **by case** (no case appears in two splits) to avoid leakage.
 - Statements: **TODO** (aim ≥ 1,500). Class balance (lie/truth): **TODO**.
 - Base model: `distilbert-base-uncased`, max length 128.
+- Fine-tuning: `ml/train.ipynb` (Colab/Kaggle, one click) or `ml/train.py`.
 
 ## Results (validation)
 
