@@ -37,12 +37,14 @@ def f1_of_lies(true_labels: list[int], predicted: list[int]) -> float:
     return 2 * precision * recall / (precision + recall) if precision + recall else 0.0
 
 
-def evaluate(model, loader, torch) -> tuple[list[int], list[int]]:
+def evaluate(model, loader, torch, device) -> tuple[list[int], list[int]]:
     model.eval()
     truths: list[int] = []
     predictions: list[int] = []
     with torch.no_grad():
         for batch, labels in loader:
+            batch = {key: value.to(device) for key, value in batch.items()}
+            labels = labels.to(device)
             logits = model(**batch).logits
             predictions.extend(int(p) for p in logits.argmax(dim=-1))
             truths.extend(int(t) for t in labels)
@@ -64,9 +66,13 @@ def main() -> None:
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"device: {device}")
     train_rows = read_jsonl(Path(args.data) / "train.jsonl")
     val_rows = read_jsonl(Path(args.data) / "val.jsonl")
-    print(f"{len(train_rows)} train / {len(val_rows)} val statements")
+    test_path = Path(args.data) / "test.jsonl"
+    test_rows = read_jsonl(test_path) if test_path.exists() else val_rows
+    print(f"{len(train_rows)} train / {len(val_rows)} val / {len(test_rows)} test statements")
 
     class Claims(Dataset):
         def __init__(self, rows: list[dict]) -> None:
@@ -88,29 +94,38 @@ def main() -> None:
 
     train_loader = DataLoader(Claims(train_rows), batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(Claims(val_rows), batch_size=args.batch_size)
+    test_loader = DataLoader(Claims(test_rows), batch_size=args.batch_size)
 
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     for epoch in range(args.epochs):
         model.train()
         for batch, labels in train_loader:
+            batch = {key: value.to(device) for key, value in batch.items()}
+            labels = labels.to(device)
             optimizer.zero_grad()
             loss = model(**batch, labels=labels).loss
             loss.backward()
             optimizer.step()
-        truths, predictions = evaluate(model, val_loader, torch)
+        truths, predictions = evaluate(model, val_loader, torch, device)
         print(f"epoch {epoch + 1}: val F1(lie) = {f1_of_lies(truths, predictions):.3f}")
 
     # Baselines, for the model card.
-    truths = [row["label"] for row in val_rows]
-    print(f"always-TRUE baseline F1(lie) = {f1_of_lies(truths, [0] * len(truths)):.3f}")
-    majority = max((0, 1), key=lambda label: truths.count(label))
-    print(f"majority baseline F1(lie)    = {f1_of_lies(truths, [majority] * len(truths)):.3f}")
+    baseline_truths = [row["label"] for row in test_rows]
+    always_true = [0] * len(baseline_truths)
+    majority_label = max((0, 1), key=lambda label: baseline_truths.count(label))
+    majority_all = [majority_label] * len(baseline_truths)
+    print(f"always-TRUE baseline F1(lie) = {f1_of_lies(baseline_truths, always_true):.3f}")
+    print(f"majority baseline F1(lie)    = {f1_of_lies(baseline_truths, majority_all):.3f}")
+
+    truths, predictions = evaluate(model, test_loader, torch, device)
+    print(f"fine-tuned TEST F1(lie)      = {f1_of_lies(truths, predictions):.3f}")
 
     # Export to ONNX + tokenizer for CPU inference on the server.
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    model.to("cpu")
     model.eval()
     dummy = tokenizer(
         "example statement",
@@ -131,6 +146,7 @@ def main() -> None:
             "logits": {0: "batch"},
         },
         opset_version=17,
+        dynamo=False,
     )
     tokenizer.save_pretrained(out)
     print(f"wrote {out}/model.onnx and tokenizer files")
