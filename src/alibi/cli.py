@@ -400,6 +400,23 @@ def baselines(
     console.print("[dim]Fill F1 into ml/MODEL_CARD.md and compare with the fine-tuned model.[/dim]")
 
 
+@app.command()
+def quantize_detector(
+    model: Path = typer.Option(
+        Path("ml/model/model.onnx"), "--model", exists=True, dir_okay=False, readable=True
+    ),
+    out: Path | None = typer.Option(None, "--out", help="Output dir (default: beside the model)."),
+) -> None:
+    """Quantize the ONNX lie detector to int8 (offline; smaller and faster on CPU)."""
+    from .quantize import quantize_model
+
+    before, after = quantize_model(model, out)
+    console.print(
+        f"Quantized {model}: {before / 1e6:.0f} MB fp32 -> {after / 1e6:.0f} MB int8 "
+        f"({after / before * 100:.0f}%)"
+    )
+
+
 def _require_db() -> None:
     from sqlalchemy import text
 

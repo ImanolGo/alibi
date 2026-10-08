@@ -28,7 +28,7 @@ statement, no case context), so it is a deliberately hard baseline.
 | always-TRUE baseline | 0.000 | — | — |
 | majority baseline | 0.000 | — | — |
 | LLM judge (`alibi baselines`) | 0.182 | 7.7 s | $0.00022 |
-| **fine-tuned ONNX (this model)** | **0.333** | **63 ms** | **~$0** |
+| **fine-tuned ONNX (this model)** | **0.333** | **40 ms** | **~$0** |
 
 The fine-tuned model **beats always-TRUE** (0.333 vs 0.000) and the LLM judge
 (0.333 vs 0.182), and is ~120× faster and effectively free. The F1 is modest
@@ -38,11 +38,11 @@ a laptop CPU (12 cores); the N150 will be slower.
 
 ## Serving
 
-- Exported to `model.onnx` (268 MB, fp32) + `tokenizer.json`, run with ONNX
-  Runtime on CPU (no `torch` on the server).
-- `detector.py` loads it from `ALIBI_DETECTOR_DIR` (default `ml/model`).
-- **Follow-up:** 268 MB is heavy for the 400 MB app budget; int8 dynamic
-  quantization (`onnxruntime.quantization`) should cut it to ~67 MB.
+- Served as **int8 ONNX** via `alibi quantize-detector`: **67 MB** (down from
+  268 MB fp32), 40 ms/prediction on a 12-core laptop CPU. `model.fp32.onnx` is
+  kept beside it.
+- `detector.py` loads `model.onnx` from `ALIBI_DETECTOR_DIR` (default `ml/model`)
+  with ONNX Runtime on CPU — no `torch` on the server.
 
 ## Failure examples
 

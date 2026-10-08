@@ -139,7 +139,7 @@ one, which the browser UI provides. See [`docs/results/m4.md`](docs/results/m4.m
 | always-TRUE | 0.000 | — | — |
 | majority | 0.000 | — | — |
 | LLM judge | 0.182 | 7.7 s | $0.00022 |
-| **fine-tuned ONNX** | **0.333** | **63 ms** | **~$0** |
+| **fine-tuned ONNX** | **0.333** | **40 ms** | **~$0** |
 
 Baselines: `uv run alibi baselines --data ml/data/test.jsonl`. Details and the
 training run live in [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md).
