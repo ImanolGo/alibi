@@ -18,7 +18,7 @@ roadmap and milestone checklists live in [`docs/PLAN.md`](docs/PLAN.md).
 | M1 The Case File | 🚧 (10/10 cases generate; paper-solving pending) |
 | M2 One Suspect | ✅ |
 | M3 World + MCP | ✅ |
-| M4 Evals | ✅ (20-game run + gates; hand-label check pending) |
+| M4 Evals | ✅ (20-game run, gates, 90% labeller agreement) |
 | M5 Detector + Web + Homelab | 🚧 (code + deploy done; fine-tune, demo GIF and docker-stats pending) |
 
 ## Quickstart

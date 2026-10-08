@@ -231,7 +231,8 @@ consistent deception, why hidden reasoning helps.
 **Acceptance criteria**
 - [x] `alibi eval --games 20` runs unattended from your laptop.
 - [x] Solver can't access ground truth (test on its inputs).
-- [ ] Labeller vs your 30 hand labels: agreement reported (aim ≥ 80 %).
+- [x] Labeller vs your 30 hand labels: agreement reported — **90%** (see
+      `docs/results/m4_labels.md`).
 - [ ] A deliberately broken suspect prompt makes the CI gate fail. Keep that PR (closed) and link it in the README.
 - [x] `docs/results/m4.md`: numbers, one failure you found, what you changed, before/after.
 
