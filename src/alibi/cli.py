@@ -372,6 +372,34 @@ def export_dataset(
         )
 
 
+@app.command()
+def baselines(
+    data: Path = typer.Option(
+        Path("ml/data/test.jsonl"), "--data", exists=True, dir_okay=False, readable=True
+    ),
+    limit: int | None = typer.Option(None, "--limit", help="Only use the first N statements."),
+) -> None:
+    """Compare the detector against always-TRUE, majority and the LLM judge."""
+    from .baselines import evaluate_baselines
+
+    report = evaluate_baselines(data, limit=limit)
+    table = Table(title=f"lie-detector baselines (n={report.n})")
+    table.add_column("baseline", style="cyan")
+    table.add_column("F1(lie)")
+    table.add_column("latency")
+    table.add_column("cost / prediction")
+    table.add_row("always-TRUE", f"{report.always_true_f1:.3f}", "—", "—")
+    table.add_row("majority", f"{report.majority_f1:.3f}", "—", "—")
+    table.add_row(
+        "LLM judge",
+        f"{report.llm_judge_f1:.3f}",
+        f"{report.llm_judge_latency_s * 1000:.0f} ms",
+        f"${report.llm_judge_cost_usd:.5f}",
+    )
+    console.print(table)
+    console.print("[dim]Fill F1 into ml/MODEL_CARD.md and compare with the fine-tuned model.[/dim]")
+
+
 def _require_db() -> None:
     from sqlalchemy import text
 
