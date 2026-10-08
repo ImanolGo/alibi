@@ -89,6 +89,19 @@ def test_check5_fail_only_one_clue(valid_case: Case) -> None:
     assert "insufficient_clues" in codes(broken)
 
 
+# --- extra check: innocents must be equally implicated (difficulty) --------
+def test_spread_pass(valid_case: Case) -> None:
+    assert "insufficient_spread" not in codes(valid_case)
+
+
+def test_spread_fail_when_only_one_innocent_implicated(valid_case: Case) -> None:
+    broken = valid_case.model_copy(deep=True)
+    # Turn the doctor's red herring into a real clue: only Lady Blackwood's
+    # red herring remains, so one innocent is implicated instead of two.
+    broken.clue("clue_chip").is_red_herring = False  # type: ignore[union-attr]
+    assert "insufficient_spread" in codes(broken)
+
+
 # --- check 6: every referenced id exists -----------------------------------
 def test_check6_pass(valid_case: Case) -> None:
     assert "unknown_reference" not in codes(valid_case)

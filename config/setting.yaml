@@ -9,7 +9,7 @@ victim: >
   much mourned.
 time_of_death: "22:00"
 murder_location: the library
-suspect_count: 4
+suspect_count: 5
 tone: >
   Classic cosy mystery. The crime happens off-page: clues and testimony only,
   never gore. Dry wit, period detail, everyone has something to hide.
@@ -22,4 +22,6 @@ rooms:
 notes: >
   One evening's timeline, roughly 20:00 to 23:00. Five to eight clues, at most
   two of them red herrings. Every suspect has a secret; at least one innocent's
-  secret should make them look suspicious for an unrelated reason.
+  secret should make them look suspicious for an unrelated reason. Guilt must be
+  hard to deduce: several suspects should have both motive and opportunity, and
+  the clues should be circumstantial rather than naming the culprit.

@@ -42,6 +42,7 @@ class GameState(BaseModel):
     actions_left: int = MAX_ACTIONS
     discovered_clues: list[str] = Field(default_factory=list)
     examined_clues: list[str] = Field(default_factory=list)
+    presented: dict[str, list[str]] = Field(default_factory=dict)
     lie_detector_used: int = 0
     conversations: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
     accused: str | None = None
@@ -55,6 +56,12 @@ class Responder(Protocol):
     def set_clues(self, suspect_id: str, clue_ids: list[str]) -> None: ...
 
     def answer(self, suspect_id: str, question: str) -> str: ...
+
+
+class Detector(Protocol):
+    """Anything with a ``predict(statement) -> Prediction`` (real or fake)."""
+
+    def predict(self, statement: str) -> Any: ...
 
 
 class ActionState(TypedDict, total=False):
@@ -138,6 +145,7 @@ class Game:
         responder: Responder | None = None,
         llm: LLM | None = None,
         reason: bool | None = None,
+        detector: Detector | None = None,
     ) -> None:
         self.case = case
         self.game_id = game_id or case.id
@@ -146,6 +154,8 @@ class Game:
             case, game_id=self.game_id, llm=llm, reason=reason
         )
         self.state = GameState(game_id=self.game_id, case_id=case.id)
+        self._detector_impl = detector
+        self._detector_checked = detector is not None
         self._pipeline = self._build_pipeline()
         if self.store is not None:
             self.store.save(self)
@@ -197,10 +207,20 @@ class Game:
         return ActionResult(message=message, data={"rooms": rooms})
 
     def case_summary(self) -> ActionResult:
-        suspects = [p.id for p in self.case.suspects()]
+        victim = self.case.victim_person()
+        victim_name = victim.name if victim else self.case.victim
+        suspects = self.case.suspects()
+        suspect_list = ", ".join(f"{person.id} ({person.name})" for person in suspects)
         return ActionResult(
-            message=f"{self.case.title}. The victim is {self.case.victim}.",
-            data={"title": self.case.title, "suspects": suspects, "victim": self.case.victim},
+            message=(
+                f"{self.case.title}. Victim: {self.case.victim} ({victim_name}). "
+                f"Suspects you may question or accuse: {suspect_list}."
+            ),
+            data={
+                "title": self.case.title,
+                "victim": self.case.victim,
+                "suspects": [person.id for person in suspects],
+            },
         )
 
     def status(self) -> ActionResult:
@@ -220,11 +240,13 @@ class Game:
     def inspect(self, clue_id: str) -> ActionResult:
         return self._run("inspect", clue_id=clue_id)
 
-    def question(self, suspect_id: str, text: str) -> ActionResult:
-        return self._run("question", suspect_id=suspect_id, text=text)
+    def question(
+        self, suspect_id: str, text: str, evidence: list[str] | None = None
+    ) -> ActionResult:
+        return self._run("question", suspect_id=suspect_id, text=text, evidence=evidence or [])
 
-    def lie_detector(self) -> ActionResult:
-        return self._run("detector")
+    def lie_detector(self, suspect_id: str | None = None) -> ActionResult:
+        return self._run("detector", suspect_id=suspect_id)
 
     def accuse(self, suspect_id: str, motive: str | None = None) -> ActionResult:
         return self._run("accuse", suspect_id=suspect_id, motive=motive)
@@ -304,6 +326,11 @@ class Game:
                 return f"No such suspect {action['suspect_id']!r}."
             if not action.get("text", "").strip():
                 return "You must actually ask something."
+            for clue_id in action.get("evidence", []):
+                if self.case.clue(clue_id) is None:
+                    return f"No such clue {clue_id!r}."
+                if clue_id not in self.state.discovered_clues:
+                    return f"You cannot present {clue_id!r} — you have not found it yet."
         elif kind == "accuse":
             if self.case.person(action["suspect_id"]) is None:
                 return f"No such suspect {action['suspect_id']!r}."
@@ -319,9 +346,9 @@ class Game:
         if kind == "inspect":
             return self._inspect(action["clue_id"])
         if kind == "question":
-            return self._question(action["suspect_id"], action["text"])
+            return self._question(action["suspect_id"], action["text"], action.get("evidence", []))
         if kind == "detector":
-            return self._detector()
+            return self._detector(action.get("suspect_id"))
         if kind == "accuse":
             return self._accuse(action["suspect_id"], action.get("motive"))
         return ActionResult(ok=False, message=f"Unknown action {kind!r}.")  # pragma: no cover
@@ -347,29 +374,70 @@ class Game:
         assert clue is not None  # validated
         if clue_id not in self.state.examined_clues:
             self.state.examined_clues.append(clue_id)
-        hint = ""
-        if clue.points_to:
-            person = self.case.person(clue.points_to)
-            if person is not None:
-                hint = f" It casts suspicion on {person.name}."
+        # Fair play: the clue describes the evidence but never names a suspect.
+        # The detective must do the reasoning (and the solver must earn it).
         return ActionResult(
-            message=f"Looking closely at {clue_id}: {clue.description}{hint}",
-            data={"points_to": clue.points_to, "red_herring": clue.is_red_herring},
+            message=f"Looking closely at {clue_id}: {clue.description}",
+            data={"red_herring": clue.is_red_herring},
         )
 
-    def _question(self, suspect_id: str, text: str) -> ActionResult:
-        self.responder.set_clues(suspect_id, self.state.discovered_clues)
+    def _question(self, suspect_id: str, text: str, evidence: list[str]) -> ActionResult:
+        # Only clues the detective actually presents count as "shown" to the
+        # suspect. Finding a clue is not the same as confronting someone with it.
+        presented = self.state.presented.setdefault(suspect_id, [])
+        for clue_id in evidence:
+            if clue_id not in presented:
+                presented.append(clue_id)
+        self.responder.set_clues(suspect_id, list(presented))
         answer = self.responder.answer(suspect_id, text)
         thread = self.state.conversations.setdefault(suspect_id, [])
         thread.append({"role": "detective", "content": text})
         thread.append({"role": "suspect", "content": answer})
-        return ActionResult(message=answer, data={"suspect": suspect_id})
-
-    def _detector(self) -> ActionResult:
-        self.state.lie_detector_used += 1
         return ActionResult(
-            message="The lie-detector needle twitches and settles. It is not ready yet (M5).",
-            data={"available": False},
+            message=answer,
+            data={"suspect": suspect_id, "evidence_presented": list(presented)},
+        )
+
+    def _get_detector(self) -> Detector | None:
+        if not self._detector_checked:
+            from .detector import LieDetector
+
+            self._detector_impl = LieDetector.from_settings()
+            self._detector_checked = True
+        return self._detector_impl
+
+    def _latest_answer(self, suspect_id: str | None = None) -> str | None:
+        suspect_ids = [suspect_id] if suspect_id is not None else list(self.state.conversations)
+        for candidate in reversed(suspect_ids):
+            for message in reversed(self.state.conversations.get(candidate, [])):
+                if message.get("role") == "suspect":
+                    return message.get("content")
+        return None
+
+    def _detector(self, suspect_id: str | None = None) -> ActionResult:
+        self.state.lie_detector_used += 1
+        detector = self._get_detector()
+        if detector is None:
+            return ActionResult(
+                message=(
+                    "The lie-detector needle twitches and settles. It is not ready yet — "
+                    "train it in ml/ and drop model.onnx into ALIBI_DETECTOR_DIR."
+                ),
+                data={"available": False},
+            )
+        statement = self._latest_answer(suspect_id)
+        if statement is None:
+            return ActionResult(
+                ok=False, message="There is nothing to test yet — question someone first."
+            )
+        prediction = detector.predict(statement)
+        if prediction.label == "FALSE":
+            message = "The needle trembles — it does not believe that answer."
+        else:
+            message = "The needle holds steady — that answer reads as true."
+        return ActionResult(
+            message=message,
+            data={"label": prediction.label, "probability": prediction.probability},
         )
 
     def _accuse(self, suspect_id: str, motive: str | None) -> ActionResult:

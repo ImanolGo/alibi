@@ -15,6 +15,16 @@ Requirements:
   `is_red_herring: true`).
 - 5 to 8 clues. At least two non-red-herring clues have `points_to` set to the
   murderer.
+- **Fair play — guilt must be genuinely hard to deduce:**
+  - Clues are circumstantial, not conclusive. Do NOT name the culprit outright
+    in a clue description, and avoid unique identifying details (monograms,
+    initials, handwriting) that point at exactly one suspect.
+  - At least two clues must be red herrings (`is_red_herring: true`), and they
+    must point at **two different innocents** (set `points_to`), so the culprit
+    is not the only person a clue implicates.
+  - At least three different suspects should be implicated by some clue
+    (red-herring or not), and several suspects should have both motive and
+    opportunity.
 - Every id you reference (locations, actors, witnesses, `points_to`, victim,
   murderer, crime_location) must exist elsewhere in the same JSON.
 

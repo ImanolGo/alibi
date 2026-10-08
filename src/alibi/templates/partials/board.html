@@ -1,0 +1,80 @@
+<div id="board">
+  <div class="status">
+    <strong>{{ game.case.title }}</strong>
+    <span>{{ game.state.actions_left }} actions left</span>
+    <span>Found {{ game.state.discovered_clues | length }} clue(s)</span>
+    <span>Outcome: {{ game.state.outcome }}</span>
+  </div>
+
+  {% if result %}
+    <div class="result {% if not result.ok %}bad{% endif %}">{{ result.message }}</div>
+  {% endif %}
+
+  <div class="columns">
+    <section>
+      <h2>Rooms</h2>
+      {% for room in game.case.locations %}
+        <form hx-post="/games/{{ game.game_id }}/search" hx-target="#board" hx-swap="outerHTML">
+          <input type="hidden" name="room_id" value="{{ room.id }}">
+          <button {% if game.state.outcome != 'playing' %}disabled{% endif %}>Search {{ room.name }}</button>
+        </form>
+      {% endfor %}
+
+      <h2>Evidence found</h2>
+      {% if not game.state.discovered_clues %}<p class="muted">Nothing yet — search a room.</p>{% endif %}
+      {% for clue_id in game.state.discovered_clues %}
+        <form hx-post="/games/{{ game.game_id }}/inspect" hx-target="#board" hx-swap="outerHTML">
+          <input type="hidden" name="clue_id" value="{{ clue_id }}">
+          <button {% if game.state.outcome != 'playing' %}disabled{% endif %}>Inspect {{ clue_id }}</button>
+        </form>
+      {% endfor %}
+    </section>
+
+    <section>
+      <h2>Suspects</h2>
+      {% for suspect in game.case.suspects() %}
+        <div class="suspect">
+          <h3>{{ suspect.name }}</h3>
+          {% for message in game.state.conversations.get(suspect.id, []) %}
+            <p class="{{ message.role }}">
+              <b>{% if message.role == 'detective' %}You{% else %}{{ suspect.name }}{% endif %}:</b>
+              {{ message.content }}
+            </p>
+          {% endfor %}
+          {% if game.state.outcome == 'playing' %}
+            <form hx-post="/games/{{ game.game_id }}/question" hx-target="#board" hx-swap="outerHTML">
+              <input type="hidden" name="suspect_id" value="{{ suspect.id }}">
+              <input name="text" placeholder="Ask {{ suspect.name }}…" required>
+              {% if game.state.discovered_clues %}
+                <details>
+                  <summary>Present evidence</summary>
+                  {% for clue_id in game.state.discovered_clues %}
+                    <label><input type="checkbox" name="evidence" value="{{ clue_id }}"> {{ clue_id }}</label>
+                  {% endfor %}
+                </details>
+              {% endif %}
+              <button>Question</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  </div>
+
+  {% if game.state.outcome == 'playing' %}
+    <section>
+      <h2>Accuse</h2>
+      <form hx-post="/games/{{ game.game_id }}/accuse" hx-target="#board" hx-swap="outerHTML">
+        <select name="suspect_id">
+          {% for suspect in game.case.suspects() %}
+            <option value="{{ suspect.id }}">{{ suspect.name }}</option>
+          {% endfor %}
+        </select>
+        <input name="motive" placeholder="Motive (optional)">
+        <button>Accuse</button>
+      </form>
+    </section>
+  {% else %}
+    <p><a href="/games/{{ game.game_id }}/reveal">What really happened →</a></p>
+  {% endif %}
+</div>

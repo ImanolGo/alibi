@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}What really happened — Alibi{% endblock %}
+{% block content %}
+  <h1>What really happened</h1>
+  <p class="result">{{ game.case.title }} — the murderer was
+    <strong>{{ game.case.person(game.case.murderer).name }}</strong>.</p>
+
+  <section>
+    <h2>The true timeline</h2>
+    {% for event in game.case.timeline | sort(attribute='time') %}
+      <p><b>{{ event.time }}</b> — {{ event.description }}
+        <span class="muted">({{ event.actors | join(', ') }})</span></p>
+    {% endfor %}
+  </section>
+
+  <section>
+    <h2>What each suspect was hiding</h2>
+    {% for suspect in game.case.suspects() %}
+      <div class="card">
+        <h3>{{ suspect.name }}{% if suspect.id == game.case.murderer %} — the murderer{% endif %}</h3>
+        {% if suspect.secrets %}
+          {% for secret in suspect.secrets %}
+            <p>· {{ secret.text }}{% if secret.is_red_herring %} <span class="muted">(a red herring)</span>{% endif %}</p>
+          {% endfor %}
+        {% else %}
+          <p class="muted">No secrets.</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </section>
+
+  <p><a href="/games/{{ game.game_id }}">← back to the game</a></p>
+{% endblock %}

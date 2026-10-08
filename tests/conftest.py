@@ -4,7 +4,19 @@ from __future__ import annotations
 
 import pytest
 
+from alibi import detector as detector_module
 from alibi.case import Case
+from alibi.config import Settings
+
+
+@pytest.fixture(autouse=True)
+def _no_detector_model(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Tests must not depend on a trained model being present on disk."""
+    monkeypatch.setattr(
+        detector_module,
+        "get_settings",
+        lambda: Settings(detector_dir=tmp_path / "no-model"),
+    )
 
 
 def base_case() -> dict:

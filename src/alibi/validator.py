@@ -122,6 +122,27 @@ def _check_pointing_clues(case: Case) -> list[Violation]:
     return []
 
 
+# --- extra check (difficulty): innocents must be equally implicated ---------
+def _check_suspicion_spread(case: Case) -> list[Violation]:
+    red_herrings = [clue for clue in case.clues if clue.is_red_herring]
+    innocents_implicated = {
+        clue.points_to
+        for clue in red_herrings
+        if clue.points_to is not None and clue.points_to != case.murderer
+    }
+    if len(red_herrings) < 2 or len(innocents_implicated) < 2:
+        return [
+            Violation(
+                code="insufficient_spread",
+                message=(
+                    "at least two red-herring clues must point at two different innocents, "
+                    "so the culprit is not the only suspect a clue implicates"
+                ),
+            )
+        ]
+    return []
+
+
 # --- check 6: every referenced id exists -----------------------------------
 def _check_references(case: Case) -> list[Violation]:
     out: list[Violation] = []
@@ -196,4 +217,5 @@ def validate(case: Case) -> list[Violation]:
     violations += _check_double_booked(case)
     violations += _check_secrets(case)
     violations += _check_pointing_clues(case)
+    violations += _check_suspicion_spread(case)
     return violations

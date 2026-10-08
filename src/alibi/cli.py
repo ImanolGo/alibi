@@ -26,7 +26,7 @@ from .evals import (
 )
 from .game import ActionResult, Game, SqlGameStore, load_or_create_game
 from .generator import generate_valid_case
-from .llm import complete_with_usage, spend_today
+from .llm import BudgetExceededError, complete_with_usage, spend_today
 from .memory import SqlMemoryStore
 from .suspect import SuspectAgent
 from .tracing import init_tracing
@@ -246,8 +246,8 @@ def _render_case(case_obj, violations: list[Violation]) -> Group:
 
 
 PLAY_HELP = (
-    "rooms · search <room_id> · inspect <clue_id> · ask <suspect_id> <question> · "
-    "detector · accuse <suspect_id> [motive] · status · quit"
+    "rooms · search <room_id> · inspect <clue_id> · show <suspect_id> <clue_id…> · "
+    "ask <suspect_id> <question> · detector · accuse <suspect_id> [motive] · status · quit"
 )
 
 
@@ -336,6 +336,103 @@ def _resolve_case(case_path: Path | None) -> Case:
     return Case.model_validate_json(cases[-1].read_text(encoding="utf-8"))
 
 
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8000, "--port"),
+) -> None:
+    """Serve the web UI (FastAPI + Jinja + HTMX)."""
+    import uvicorn
+
+    from .web import create_app
+
+    _require_db()
+    uvicorn.run(create_app(), host=host, port=port)
+
+
+@app.command()
+def export_dataset(
+    out: Path = typer.Option(Path("ml/data"), "--out", help="Directory for JSONL splits."),
+    val_frac: float = typer.Option(0.1, "--val-frac"),
+    test_frac: float = typer.Option(0.1, "--test-frac"),
+    seed: int = typer.Option(42, "--seed"),
+) -> None:
+    """Export labelled claims as train/val/test JSONL, split by case (no leakage)."""
+    from .export import export_dataset as run_export
+
+    _require_db()
+    counts = run_export(out, val_frac=val_frac, test_frac=test_frac, seed=seed)
+    total = sum(counts.values())
+    console.print(
+        f"Exported {total} statements to {out}: " + ", ".join(f"{k}={v}" for k, v in counts.items())
+    )
+    if total < 1500:
+        console.print(
+            "[yellow]Fewer than 1500 statements — run more eval games for a better model.[/yellow]"
+        )
+
+
+@app.command()
+def baselines(
+    data: Path = typer.Option(
+        Path("ml/data/test.jsonl"), "--data", exists=True, dir_okay=False, readable=True
+    ),
+    limit: int | None = typer.Option(None, "--limit", help="Only use the first N statements."),
+) -> None:
+    """Compare the detector against always-TRUE, majority and the LLM judge."""
+    from .baselines import evaluate_baselines
+
+    report = evaluate_baselines(data, limit=limit)
+    table = Table(title=f"lie-detector baselines (n={report.n})")
+    table.add_column("baseline", style="cyan")
+    table.add_column("F1(lie)")
+    table.add_column("latency")
+    table.add_column("cost / prediction")
+    table.add_row("always-TRUE", f"{report.always_true_f1:.3f}", "—", "—")
+    table.add_row("majority", f"{report.majority_f1:.3f}", "—", "—")
+    table.add_row(
+        "LLM judge",
+        f"{report.llm_judge_f1:.3f}",
+        f"{report.llm_judge_latency_s * 1000:.0f} ms",
+        f"${report.llm_judge_cost_usd:.5f}",
+    )
+    console.print(table)
+    console.print("[dim]Fill F1 into ml/MODEL_CARD.md and compare with the fine-tuned model.[/dim]")
+
+
+@app.command()
+def quantize_detector(
+    model: Path = typer.Option(
+        Path("ml/model/model.onnx"), "--model", exists=True, dir_okay=False, readable=True
+    ),
+    out: Path | None = typer.Option(None, "--out", help="Output dir (default: beside the model)."),
+) -> None:
+    """Quantize the ONNX lie detector to int8 (offline; smaller and faster on CPU)."""
+    from .quantize import quantize_model
+
+    before, after = quantize_model(model, out)
+    console.print(
+        f"Quantized {model}: {before / 1e6:.0f} MB fp32 -> {after / 1e6:.0f} MB int8 "
+        f"({after / before * 100:.0f}%)"
+    )
+
+
+def _require_db() -> None:
+    from sqlalchemy import text
+
+    from .db import get_engine, init_db
+
+    try:
+        engine = get_engine()
+        init_db(engine)
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 - surface a friendly message
+        console.print(f"[red]Database unavailable:[/red] {exc}")
+        console.print("[dim]Run `make up` and check ALIBI_DATABASE_URL in .env.[/dim]")
+        raise typer.Exit(code=3) from exc
+
+
 def _make_game_store() -> SqlGameStore:
     from .db import get_engine, get_session_factory, init_db
 
@@ -368,15 +465,37 @@ def _dispatch(game: Game, line: str) -> ActionResult | None:
     if command == "ask":
         if len(rest) < 2:
             return ActionResult(ok=False, message="usage: ask <suspect_id> <question>")
-        return game.question(rest[0], " ".join(rest[1:]))
+        return _safe_call(lambda: game.question(rest[0], " ".join(rest[1:])))
+    if command == "show":
+        # show <suspect_id> <clue_id> [<clue_id> ...]  — present evidence
+        if len(rest) < 2:
+            return ActionResult(
+                ok=False, message="usage: show <suspect_id> <clue_id> [clue_id ...]"
+            )
+        return _safe_call(
+            lambda: game.question(
+                rest[0],
+                "The detective lays this evidence before you and waits. What do you say?",
+                evidence=rest[1:],
+            )
+        )
     if command == "detector":
-        return game.lie_detector()
+        return game.lie_detector(rest[0] if rest else None)
     if command == "accuse":
         if not rest:
             return ActionResult(ok=False, message="usage: accuse <suspect_id> [motive]")
         motive = " ".join(rest[1:]) or None
         return game.accuse(rest[0], motive)
     return ActionResult(ok=False, message=f"Unknown command {command!r}. Try: {PLAY_HELP}")
+
+
+def _safe_call(action) -> ActionResult:
+    try:
+        return action()
+    except BudgetExceededError:
+        return ActionResult(
+            ok=False, message="The detective is out of budget today — come back tomorrow."
+        )
 
 
 @app.command()
@@ -386,6 +505,7 @@ def eval(
     gate: bool = typer.Option(False, "--gate", help="Exit non-zero if a gate is violated."),
 ) -> None:
     """Generate cases, let the solver play, and report the metrics."""
+    _require_db()
     records = run_eval(games, seed=seed)
     metrics = compute_metrics(records)
     failures = check_gates(metrics, load_gates())

@@ -37,11 +37,13 @@ class Settings(BaseModel):
     daily_budget_usd: float = Field(default=2.0, ge=0)
     models: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_MODELS))
     embedding_dim: int = EMBEDDING_DIM
-    request_timeout_s: float = Field(default=120.0, gt=0)
+    request_timeout_s: float = Field(default=180.0, gt=0)
+    generator_timeout_s: float = Field(default=300.0, gt=0)
     database_url: str = "postgresql+psycopg://alibi:alibi@localhost:5432/alibi"
     project_root: Path = PROJECT_ROOT
     cases_dir: Path = PROJECT_ROOT / "cases"
     setting_path: Path = PROJECT_ROOT / "config" / "setting.yaml"
+    detector_dir: Path = PROJECT_ROOT / "ml" / "model"
     phoenix_endpoint: str = "http://localhost:6006/v1/traces"
 
     @property
@@ -75,11 +77,13 @@ def get_settings() -> Settings:
     load_dotenv(PROJECT_ROOT / ".env")
     root = Path(os.environ.get("ALIBI_ROOT", str(PROJECT_ROOT)))
     budget = float(os.environ.get("ALIBI_DAILY_BUDGET_USD", "2.0"))
-    timeout = float(os.environ.get("ALIBI_REQUEST_TIMEOUT_S", "120"))
+    timeout = float(os.environ.get("ALIBI_REQUEST_TIMEOUT_S", "180"))
+    generator_timeout = float(os.environ.get("ALIBI_GENERATOR_TIMEOUT_S", "300"))
     return Settings(
         daily_budget_usd=budget,
         models=_load_models(root / "config" / "models.yaml"),
         request_timeout_s=timeout,
+        generator_timeout_s=generator_timeout,
         database_url=os.environ.get(
             "ALIBI_DATABASE_URL",
             "postgresql+psycopg://alibi:alibi@localhost:5432/alibi",
@@ -87,6 +91,7 @@ def get_settings() -> Settings:
         project_root=root,
         cases_dir=Path(os.environ.get("ALIBI_CASES_DIR", str(root / "cases"))),
         setting_path=Path(os.environ.get("ALIBI_SETTING", str(root / "config" / "setting.yaml"))),
+        detector_dir=Path(os.environ.get("ALIBI_DETECTOR_DIR", str(root / "ml" / "model"))),
         phoenix_endpoint=os.environ.get(
             "ALIBI_PHOENIX_ENDPOINT", "http://localhost:6006/v1/traces"
         ),
