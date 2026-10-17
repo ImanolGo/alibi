@@ -157,12 +157,14 @@ class SuspectAgent:
                 views.append(self._clue_view(clue))
         return views
 
-    @staticmethod
-    def _clue_view(clue: Clue) -> dict[str, Any]:
+    def _clue_view(self, clue: Clue) -> dict[str, Any]:
         return {
             "id": clue.id,
             "description": clue.description,
             "is_red_herring": clue.is_red_herring,
+            # A red herring aimed at *this* suspect is about their own secret:
+            # they should squirm, not shrug it off as "nothing to do with you".
+            "points_at_me": clue.points_to == self.person_id,
         }
 
     # -- graph nodes --------------------------------------------------------

@@ -7,6 +7,8 @@ those messages are fed back to the LLM by the generator's repair loop.
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel
 
 from .case import Case, format_time, parse_time
@@ -208,6 +210,36 @@ def _check_references(case: Case) -> list[Violation]:
     return out
 
 
+# --- extra check (fair play): clue ids never name a suspect ----------------
+# Clue ids are shown to the detective (search results, MCP tools, the solver),
+# so an id like "clue_hobbs_glove" would give the game away.
+_TITLES = {"lord", "lady", "sir", "dame", "mr", "mrs", "miss", "ms", "dr", "doctor", "the", "of"}
+
+
+def _name_words(text: str) -> set[str]:
+    words = {word for word in re.split(r"[^a-z0-9]+", text.lower()) if len(word) >= 3}
+    return words - _TITLES
+
+
+def _check_clue_ids(case: Case) -> list[Violation]:
+    out: list[Violation] = []
+    for clue in case.clues:
+        id_words = _name_words(clue.id)
+        for suspect in case.suspects():
+            named = id_words & (_name_words(suspect.id) | _name_words(suspect.name))
+            if named:
+                out.append(
+                    Violation(
+                        code="clue_id_names_suspect",
+                        message=(
+                            f"clue id {clue.id!r} contains {sorted(named)} from suspect "
+                            f"{suspect.id!r}; use a neutral id that names only the object"
+                        ),
+                    )
+                )
+    return out
+
+
 def validate(case: Case) -> list[Violation]:
     """Run every check and return all violations (empty when the case is sound)."""
     violations: list[Violation] = []
@@ -218,4 +250,5 @@ def validate(case: Case) -> list[Violation]:
     violations += _check_secrets(case)
     violations += _check_pointing_clues(case)
     violations += _check_suspicion_spread(case)
+    violations += _check_clue_ids(case)
     return violations

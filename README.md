@@ -19,7 +19,7 @@ roadmap and milestone checklists live in [`docs/PLAN.md`](docs/PLAN.md).
 | M2 One Suspect | ✅ |
 | M3 World + MCP | ✅ |
 | M4 Evals | ✅ (20-game run, gates, 90% labeller agreement) |
-| M5 Detector + Web + Homelab | 🚧 (code + deploy done; fine-tune, demo GIF and docker-stats pending) |
+| M5 Detector + Web + Homelab | 🚧 (code, web UI + deploy done; fine-tune, demo GIF and docker-stats pending) |
 
 ## Quickstart
 
@@ -37,10 +37,11 @@ make test && make lint
 
 ## Demo
 
-<!-- Record a short game with `uv run alibi web` and drop it here:
-![Alibi in the browser](assets/alibi-demo.gif)
--->
-_Demo GIF: to record (a browser game is the best clip). Live demo: `<link to fill in>`._
+![The board: suspects and evidence as typed index cards on green baize, with the story clock and lie-detector charges](assets/alibi-web.webp)
+
+![The reveal: your detective rank, what you missed, every secret and the true timeline](assets/alibi-reveal.webp)
+
+_Screenshots use the test case with scripted answers. A recorded GIF of a real game and a live link are still to do._
 
 ## Architecture
 
@@ -94,7 +95,7 @@ Every choice is here to teach one thing. The "why" is the point.
 Each milestone adds one concept; see `docs/results/` for the measured outcomes.
 
 1. **M1 — structured output + validation.** One LLM call fills a Pydantic `Case`
-   from `config/setting.yaml`; a deterministic validator checks seven rules and a
+   from `config/setting.yaml`; a deterministic validator checks eight rules and a
    bounded repair loop feeds violations back to the model. Creativity is the
    model's job; correctness is the code's. (`case.py`, `generator.py`,
    `validator.py`)
@@ -146,9 +147,9 @@ training run live in [`ml/MODEL_CARD.md`](ml/MODEL_CARD.md).
 
 ## Deploy (Docker / homelab)
 
-The app is one small image (`python:3.12-slim`, no torch) served as MCP over
-streamable HTTP, alongside Postgres and Phoenix — sized to stay under ~2 GB on
-an Intel N150 with no GPU.
+The app is one small image (`python:3.12-slim`, no torch), run twice: as MCP over
+streamable HTTP (port 8080) and as the browser game (port 8000), alongside
+Postgres and Phoenix — sized to stay under ~2 GB on an Intel N150 with no GPU.
 
 ```bash
 cp .env.example .env                      # set OPENROUTER_API_KEY (+ low budget)
@@ -194,10 +195,17 @@ Tools: `case_summary`, `status`, `list_rooms`, `search_room`, `inspect`,
 uv run alibi web        # http://127.0.0.1:8000
 ```
 
-FastAPI + Jinja + HTMX, no JS build step. Generate a case (or pick one), search
-rooms, inspect the evidence, question suspects — presenting evidence when you
-have it — then accuse, and read "what really happened". The same `Game` object
-backs the web, CLI and MCP server, so a game is shared across all three.
+FastAPI + Jinja + HTMX, no JS build step (htmx and the fonts are served from
+`src/alibi/static`, so no CDN is needed). Generate a case (or pick one), search
+rooms, question suspects — presenting evidence when you have it — test an answer
+with the lie detector, then accuse and read "what really happened".
+
+Every "Start a game" is a fresh game with its own URL, so a case can be replayed
+and visitors of a public deploy never share one. The story clock turns your 20
+actions into a night: you arrive an hour after the death, each action takes a
+quarter of an hour, and the murderer leaves when the roads clear at dawn. The
+reveal page ranks you (Constable to Great Detective) and lists the real clues you
+missed. The same `Game` object backs the web, CLI and MCP server.
 
 ## Evals
 

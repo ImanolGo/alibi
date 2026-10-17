@@ -117,3 +117,20 @@ def test_check6_fail_unknown_location(valid_case: Case) -> None:
     broken = valid_case.model_copy(deep=True)
     broken.crime_location = "the_moon"
     assert "unknown_reference" in codes(broken)
+
+
+# --- extra check (fair play): clue ids never name a suspect ----------------
+def test_clue_ids_pass(valid_case: Case) -> None:
+    assert "clue_id_names_suspect" not in codes(valid_case)
+
+
+def test_clue_ids_fail_when_an_id_names_a_suspect(valid_case: Case) -> None:
+    broken = valid_case.model_copy(deep=True)
+    broken.clues[0].id = "clue_hobbs_ash"  # players and the solver see clue ids
+    assert "clue_id_names_suspect" in codes(broken)
+
+
+def test_clue_ids_ignore_titles_and_short_words(valid_case: Case) -> None:
+    ok = valid_case.model_copy(deep=True)
+    ok.clues[0].id = "clue_lady_glove"  # "lady" is a title, not a name
+    assert "clue_id_names_suspect" not in codes(ok)

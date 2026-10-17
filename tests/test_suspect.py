@@ -150,3 +150,24 @@ def test_team_restores_saved_conversations(valid_case: Case) -> None:
         {"role": "assistant", "content": "Polishing the silver."},
     ]
     assert team.agents["lady_blackwood"].history == []
+
+
+def _speak_prompt(llm: FakeLLM) -> str:
+    call = next(call for call in llm.calls if call["method"] == "complete")
+    return call["messages"][-1]["content"]
+
+
+def test_a_red_herring_about_you_is_not_dismissed(valid_case: Case) -> None:
+    llm = FakeLLM(completions=["That letter is private!"])
+    agent = make_agent(valid_case, "lady_blackwood", llm=llm)
+    agent.show_clue("clue_letter")  # red herring that points at Lady Blackwood
+    prompt = _speak_prompt(llm)
+    assert "nothing to do with you" not in prompt
+    assert "points at you" in prompt
+
+
+def test_a_red_herring_about_someone_else_is_dismissed(valid_case: Case) -> None:
+    llm = FakeLLM(completions=["Not mine, Inspector."])
+    agent = make_agent(valid_case, "dr_penrose", llm=llm)
+    agent.show_clue("clue_letter")
+    assert "nothing to do with you" in _speak_prompt(llm)
