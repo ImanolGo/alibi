@@ -39,9 +39,9 @@ make test && make lint
 
 ![The board: suspects and evidence as typed index cards on green baize, with the story clock and lie-detector charges](assets/alibi-web.webp)
 
-![The reveal: your detective rank, what you missed, every secret and the true timeline](assets/alibi-reveal.webp)
-
 <img src="assets/alibi-mobile.webp" alt="The same board on a phone: one column with the cards stacked" width="320">
+
+![The reveal: your detective rank, what you missed, every secret and the true timeline](assets/alibi-reveal.webp)
 
 _Screenshots use the test case with scripted answers. A recorded GIF of a real game and a live link are still to do._
 
@@ -164,6 +164,9 @@ Or build/run the image directly:
 ```bash
 docker build -t alibi .
 docker run --rm -p 8080:8080 --env-file .env -v alibi_cases:/app/cases alibi
+# the browser game (same image, different command):
+docker run --rm -p 8000:8000 --env-file .env -v alibi_cases:/app/cases alibi \
+  alibi web --host 0.0.0.0 --port 8000
 ```
 
 Full walkthrough — Cloudflare Tunnel (public access, no open ports), cost caps,
@@ -220,7 +223,7 @@ Metrics (`config/gates.yaml`): `case_valid_rate`, `solve_rate`,
 `contradiction_rate`, `early_confession_rate`, `cost_per_game`. A GitHub Action
 runs a 5-game gate on PRs touching `src/alibi/prompts/**` or `suspect.py` and
 comments the summary on the PR. The gate is exercised by deliberately breaking a
-suspect prompt: _<link to the closed "broken prompt" PR here>_.
+suspect prompt: [the closed "broken prompt" PR](https://github.com/ImanolGo/alibi/pull/3).
 
 `alibi export-dataset` turns the stored labels into fine-tuning JSONL (split by
 case, no leakage); `alibi baselines` scores always-TRUE, majority and the LLM
@@ -231,11 +234,11 @@ judge for comparison with the fine-tuned detector.
 ```
 src/alibi/        case · generator · validator · knowledge · llm · memory
                   suspect · game · mcp_server · solver · truth · evals
-                  detector · export · baselines · web · templates · cli
+                  detector · export · baselines · web · templates · static · cli
 config/           models.yaml (role → model) · setting.yaml · gates.yaml
 tests/            deterministic tests only (no network; FakeLLM)
 ml/               dataset export + training (M5; never installed on the server)
-assets/           the banner
+assets/           banner + demo screenshots
 docs/PLAN.md      roadmap · docs/adr/ decisions · docs/results/ measurements
 Dockerfile        small runtime image        compose.homelab.yml  the deploy
 ```
