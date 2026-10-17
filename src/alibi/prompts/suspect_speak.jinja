@@ -7,7 +7,7 @@ You recall from earlier:
 {% if clues %}
 The detective has shown you this evidence:
 {% for clue in clues %}
-- {{ clue.description }}{% if clue.is_red_herring %} (nothing to do with you){% endif %}
+- {{ clue.description }}{% if clue.points_at_me %} (this points at you){% elif clue.is_red_herring %} (nothing to do with you){% endif %}
 {% endfor %}
 {% endif %}
 Your private plan: worry level {{ thought.worry_level }}/10. Strategy: {{ thought.strategy }}.

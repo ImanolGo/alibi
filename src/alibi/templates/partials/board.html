@@ -1,80 +1,138 @@
+{% set clock = story_clock(game) %}
+{% set playing = game.state.outcome == 'playing' %}
+{% set charges = MAX_LIE_DETECTOR - game.state.lie_detector_used %}
+{% set clues = clue_cards(game) %}
 <div id="board">
-  <div class="status">
-    <strong>{{ game.case.title }}</strong>
-    <span>{{ game.state.actions_left }} actions left</span>
-    <span>Found {{ game.state.discovered_clues | length }} clue(s)</span>
-    <span>Outcome: {{ game.state.outcome }}</span>
+  <div class="bar">
+    <h1>{{ game.case.title }}</h1>
+    <div class="clock {% if clock.urgent %}urgent{% endif %}" title="Each action takes a quarter of an hour. The roads clear at dawn.">
+      <div class="dial" style="--used: {{ clock.used_fraction }}" aria-hidden="true"></div>
+      <div><b>{{ clock.now }}</b> <span class="dim">· dawn at {{ clock.dawn }}</span><br>
+        <span class="dim">{{ game.state.actions_left }} actions left</span></div>
+    </div>
+    <div class="bulbs" title="Lie detector charges">
+      <span class="dim">Lie detector</span>
+      {% for i in range(MAX_LIE_DETECTOR) %}<span class="bulb {% if i >= charges %}spent{% endif %}" aria-hidden="true"></span>{% endfor %}
+      <span class="sr-only">{{ charges }} of {{ MAX_LIE_DETECTOR }} charges left</span>
+    </div>
   </div>
 
-  {% if result %}
-    <div class="result {% if not result.ok %}bad{% endif %}">{{ result.message }}</div>
+  {% if clock.urgent %}
+    <p class="note bad">Dawn is close. Once the roads clear, the murderer leaves with them: name someone before your time runs out.</p>
   {% endif %}
 
-  <div class="columns">
-    <section>
-      <h2>Rooms</h2>
-      {% for room in game.case.locations %}
-        <form hx-post="/games/{{ game.game_id }}/search" hx-target="#board" hx-swap="outerHTML">
-          <input type="hidden" name="room_id" value="{{ room.id }}">
-          <button {% if game.state.outcome != 'playing' %}disabled{% endif %}>Search {{ room.name }}</button>
-        </form>
-      {% endfor %}
-
-      <h2>Evidence found</h2>
-      {% if not game.state.discovered_clues %}<p class="muted">Nothing yet — search a room.</p>{% endif %}
-      {% for clue_id in game.state.discovered_clues %}
-        <form hx-post="/games/{{ game.game_id }}/inspect" hx-target="#board" hx-swap="outerHTML">
-          <input type="hidden" name="clue_id" value="{{ clue_id }}">
-          <button {% if game.state.outcome != 'playing' %}disabled{% endif %}>Inspect {{ clue_id }}</button>
-        </form>
-      {% endfor %}
-    </section>
-
-    <section>
-      <h2>Suspects</h2>
-      {% for suspect in game.case.suspects() %}
-        <div class="suspect">
-          <h3>{{ suspect.name }}</h3>
-          {% for message in game.state.conversations.get(suspect.id, []) %}
-            <p class="{{ message.role }}">
-              <b>{% if message.role == 'detective' %}You{% else %}{{ suspect.name }}{% endif %}:</b>
-              {{ message.content }}
-            </p>
-          {% endfor %}
-          {% if game.state.outcome == 'playing' %}
-            <form hx-post="/games/{{ game.game_id }}/question" hx-target="#board" hx-swap="outerHTML">
-              <input type="hidden" name="suspect_id" value="{{ suspect.id }}">
-              <input name="text" placeholder="Ask {{ suspect.name }}…" required>
-              {% if game.state.discovered_clues %}
-                <details>
-                  <summary>Present evidence</summary>
-                  {% for clue_id in game.state.discovered_clues %}
-                    <label><input type="checkbox" name="evidence" value="{{ clue_id }}"> {{ clue_id }}</label>
-                  {% endfor %}
-                </details>
-              {% endif %}
-              <button>Question</button>
-            </form>
-          {% endif %}
+  <div class="result" aria-live="polite">
+    {# A suspect's answer is typed into their own card; no need to repeat it here. #}
+    {% if result and not (result.ok and result.data.get('suspect')) %}
+      {% if result.data.get('label') %}
+        {% set p = result.data.probability %}
+        <div class="card plain gauge">
+          <svg viewBox="0 0 120 70" role="img" aria-label="Lie detector: {{ (p * 100) | round | int }}% likely a lie">
+            <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="#c9d7e8" stroke-width="10"/>
+            <path d="M85 16.7 A50 50 0 0 1 110 60" fill="none" stroke="#d4564a" stroke-width="10"/>
+            <line class="needle" x1="60" y1="60" x2="60" y2="16" stroke="#1f2230" stroke-width="3" stroke-linecap="round" style="transform: rotate({{ -70 + 140 * p }}deg)"/>
+            <circle cx="60" cy="60" r="5" fill="#1f2230"/>
+          </svg>
+          <p>{{ result.message }}</p>
         </div>
-      {% endfor %}
+      {% else %}
+        <div class="card plain"><p>{% if not result.ok %}<b>Note:</b> {% endif %}{{ result.message | friendly }}</p></div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="layout">
+    <aside>
+      <section>
+        <h2>The house</h2>
+        <div class="rooms">
+          {% for room in game.case.locations %}
+            {% set searched = room.id in game.state.searched_rooms %}
+            <form hx-post="/games/{{ game.game_id }}/search" hx-target="#board" hx-swap="outerHTML" hx-disabled-elt="find button">
+              <input type="hidden" name="room_id" value="{{ room.id }}">
+              <button class="{% if searched %}searched{% endif %}" {% if not playing %}disabled{% endif %} title="{{ room.description }}">Search {{ room.name }}</button>
+              {% if searched %}<small>{{ clues | selectattr('room', 'equalto', room.name) | list | length }} found</small>{% endif %}
+            </form>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section>
+        <h2>Evidence found</h2>
+        {% if not clues %}<p class="dim">Nothing yet. Each search takes a quarter of an hour.</p>{% endif %}
+        <div class="slips">
+          {% for clue in clues %}
+            <div class="slip">{{ clue.description }}<span class="where">found in the {{ clue.room | lower }}</span></div>
+          {% endfor %}
+        </div>
+      </section>
+    </aside>
+
+    <section aria-label="Suspects">
+      <div class="suspects">
+        {% for suspect in game.case.suspects() %}
+          {% set thread = game.state.conversations.get(suspect.id, []) %}
+          <article class="card suspect">
+            <h3>{{ suspect.name }}</h3>
+            <p class="who">{{ suspect.description }}</p>
+            {% if thread %}
+              <div class="transcript">
+                {% for message in thread %}
+                  {% set fresh = result and result.ok and result.data.get('suspect') == suspect.id and loop.last %}
+                  <p class="{% if message.role == 'detective' %}q{% else %}a{% if fresh %} fresh{% endif %}{% endif %}">{{ message.content }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if playing %}
+              <form class="ask" hx-post="/games/{{ game.game_id }}/question" hx-target="#board" hx-swap="outerHTML" hx-disabled-elt="find button">
+                <input type="hidden" name="suspect_id" value="{{ suspect.id }}">
+                <div class="row">
+                  <label class="sr-only" for="ask-{{ suspect.id }}">Ask {{ suspect.name }}</label>
+                  <input id="ask-{{ suspect.id }}" name="text" placeholder="Ask {{ suspect.name }}…" required autocomplete="off">
+                  <button>Question</button>
+                </div>
+                {% if clues %}
+                  <details>
+                    <summary>Present evidence ({{ game.state.presented.get(suspect.id, []) | length }} shown so far)</summary>
+                    {% for clue in clues %}
+                      <label><input type="checkbox" name="evidence" value="{{ clue.id }}"
+                        {% if clue.id in game.state.presented.get(suspect.id, []) %}checked{% endif %}> {{ clue.description | truncate(70) }}</label>
+                    {% endfor %}
+                  </details>
+                {% endif %}
+              </form>
+              {% if thread and charges > 0 %}
+                <form hx-post="/games/{{ game.game_id }}/detector" hx-target="#board" hx-swap="outerHTML" hx-disabled-elt="find button">
+                  <input type="hidden" name="suspect_id" value="{{ suspect.id }}">
+                  <button class="quiet">Test their last answer</button>
+                </form>
+              {% endif %}
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
     </section>
   </div>
 
-  {% if game.state.outcome == 'playing' %}
-    <section>
+  {% if playing %}
+    <section class="telegram">
       <h2>Accuse</h2>
-      <form hx-post="/games/{{ game.game_id }}/accuse" hx-target="#board" hx-swap="outerHTML">
-        <select name="suspect_id">
+      <form hx-post="/games/{{ game.game_id }}/accuse" hx-target="#board" hx-swap="outerHTML"
+            hx-confirm="Make the accusation? This ends the investigation.">
+        <select name="suspect_id" aria-label="The murderer">
           {% for suspect in game.case.suspects() %}
             <option value="{{ suspect.id }}">{{ suspect.name }}</option>
           {% endfor %}
         </select>
-        <input name="motive" placeholder="Motive (optional)">
+        <input name="motive" placeholder="Motive (optional)" aria-label="Motive">
         <button>Accuse</button>
       </form>
     </section>
   {% else %}
-    <p><a href="/games/{{ game.game_id }}/reveal">What really happened →</a></p>
+    <div class="verdict">
+      <span class="stamp">{% if game.state.outcome == 'won' %}Solved{% else %}Unsolved{% endif %}</span>
+      <a class="button" href="/games/{{ game.game_id }}/reveal">What really happened</a>
+      <form method="post" action="/games/{{ game.case.id }}"><button class="quiet">Play this case again</button></form>
+    </div>
   {% endif %}
 </div>

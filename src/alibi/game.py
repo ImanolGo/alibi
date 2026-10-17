@@ -9,6 +9,7 @@ LangGraph pipeline (validate → apply → update); informational ones are free.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any, Literal, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -41,10 +42,13 @@ class GameState(BaseModel):
     case_id: str
     actions_left: int = MAX_ACTIONS
     discovered_clues: list[str] = Field(default_factory=list)
+    searched_rooms: list[str] = Field(default_factory=list)
     examined_clues: list[str] = Field(default_factory=list)
     presented: dict[str, list[str]] = Field(default_factory=dict)
     lie_detector_used: int = 0
     conversations: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
+    # Who answered most recently: the lie detector's default target.
+    last_answered: str | None = None
     accused: str | None = None
     outcome: Literal["playing", "won", "lost"] = "playing"
     log: list[str] = Field(default_factory=list)
@@ -69,10 +73,15 @@ class ActionState(TypedDict, total=False):
     result: ActionResult
 
 
+ResponderFactory = Callable[[Case, str], Responder]
+
+
 class GameStore(Protocol):
     def save(self, game: Game) -> None: ...
 
-    def load(self, game_id: str) -> Game | None: ...
+    def load(
+        self, game_id: str, *, responder_factory: ResponderFactory | None = None
+    ) -> Game | None: ...
 
     def delete(self, game_id: str) -> None: ...
 
@@ -86,9 +95,11 @@ class InMemoryGameStore:
     def save(self, game: Game) -> None:
         self.rows[game.game_id] = game.to_row()
 
-    def load(self, game_id: str) -> Game | None:
+    def load(
+        self, game_id: str, *, responder_factory: ResponderFactory | None = None
+    ) -> Game | None:
         row = self.rows.get(game_id)
-        return None if row is None else Game.from_row(row, store=self)
+        return None if row is None else _restore(row, self, responder_factory)
 
     def delete(self, game_id: str) -> None:
         self.rows.pop(game_id, None)
@@ -112,7 +123,9 @@ class SqlGameStore:
                 existing.case_json = row["case_json"]
             session.commit()
 
-    def load(self, game_id: str) -> Game | None:
+    def load(
+        self, game_id: str, *, responder_factory: ResponderFactory | None = None
+    ) -> Game | None:
         with self._session_factory() as session:
             row = session.get(GameRow, game_id)
             if row is None:
@@ -123,7 +136,7 @@ class SqlGameStore:
                 "state": row.state,
                 "case_json": row.case_json,
             }
-        return Game.from_row(data, store=self)
+        return _restore(data, self, responder_factory)
 
     def delete(self, game_id: str) -> None:
         with self._session_factory() as session:
@@ -146,6 +159,7 @@ class Game:
         llm: LLM | None = None,
         reason: bool | None = None,
         detector: Detector | None = None,
+        _restoring: bool = False,
     ) -> None:
         self.case = case
         self.game_id = game_id or case.id
@@ -157,7 +171,7 @@ class Game:
         self._detector_impl = detector
         self._detector_checked = detector is not None
         self._pipeline = self._build_pipeline()
-        if self.store is not None:
+        if self.store is not None and not _restoring:
             self.store.save(self)
 
     # -- persistence --------------------------------------------------------
@@ -180,6 +194,8 @@ class Game:
         reason: bool | None = None,
     ) -> Game:
         case = Case.model_validate(row["case_json"])
+        # ``_restoring`` stops the constructor saving a fresh state over the
+        # saved one (which used to wipe progress whenever a game was loaded).
         game = cls(
             case,
             game_id=row["game_id"],
@@ -187,8 +203,13 @@ class Game:
             responder=responder,
             llm=llm,
             reason=reason,
+            _restoring=True,
         )
         game.state = GameState.model_validate(row["state"])
+        # Suspects keep their conversation across restarts, not just their RAG memory.
+        restore = getattr(game.responder, "restore", None)
+        if callable(restore):
+            restore(game.state.conversations)
         return game
 
     def save(self) -> None:
@@ -271,8 +292,11 @@ class Game:
         return result
 
     def _cost(self, kind: str) -> int:
-        # The lie detector is a stub until M5; do not charge the player for it.
+        # The lie detector has its own budget (MAX_LIE_DETECTOR uses), not actions.
         return 0 if kind == "detector" else 1
+
+    def _is_suspect(self, person_id: str) -> bool:
+        return any(person.id == person_id for person in self.case.suspects())
 
     def _validate_node(self, state: ActionState) -> dict[str, Any]:
         action = state["action"]
@@ -322,7 +346,8 @@ class Game:
             if action["clue_id"] not in self.state.discovered_clues:
                 return "You have not found that yet — search a room first."
         elif kind == "question":
-            if self.case.person(action["suspect_id"]) is None:
+            # The victim is a person in the case but not someone you can question.
+            if not self._is_suspect(action["suspect_id"]):
                 return f"No such suspect {action['suspect_id']!r}."
             if not action.get("text", "").strip():
                 return "You must actually ask something."
@@ -332,10 +357,17 @@ class Game:
                 if clue_id not in self.state.discovered_clues:
                     return f"You cannot present {clue_id!r} — you have not found it yet."
         elif kind == "accuse":
-            if self.case.person(action["suspect_id"]) is None:
+            if not self._is_suspect(action["suspect_id"]):
                 return f"No such suspect {action['suspect_id']!r}."
-        elif kind == "detector" and self.state.lie_detector_used >= MAX_LIE_DETECTOR:
-            return "The lie detector has already been used twice."
+        elif kind == "detector":
+            if self.state.lie_detector_used >= MAX_LIE_DETECTOR:
+                return "The lie detector has already been used twice."
+            suspect_id = action.get("suspect_id")
+            if suspect_id is not None and not self._is_suspect(suspect_id):
+                return f"No such suspect {suspect_id!r}."
+            # A missing model says "not ready" (in apply) before asking for an answer.
+            if self._get_detector() is not None and self._latest_answer(suspect_id) is None:
+                return "There is nothing to test yet — question someone first."
         return None
 
     # -- applying -----------------------------------------------------------
@@ -359,6 +391,8 @@ class Game:
         found = [clue for clue in self.case.clues if clue.location == room_id]
         newly = [clue.id for clue in found if clue.id not in self.state.discovered_clues]
         self.state.discovered_clues.extend(newly)
+        if room_id not in self.state.searched_rooms:
+            self.state.searched_rooms.append(room_id)
 
         if not found:
             return ActionResult(message=f"You search {room.name} but find nothing of note.")
@@ -393,6 +427,7 @@ class Game:
         thread = self.state.conversations.setdefault(suspect_id, [])
         thread.append({"role": "detective", "content": text})
         thread.append({"role": "suspect", "content": answer})
+        self.state.last_answered = suspect_id
         return ActionResult(
             message=answer,
             data={"suspect": suspect_id, "evidence_presented": list(presented)},
@@ -407,17 +442,20 @@ class Game:
         return self._detector_impl
 
     def _latest_answer(self, suspect_id: str | None = None) -> str | None:
-        suspect_ids = [suspect_id] if suspect_id is not None else list(self.state.conversations)
-        for candidate in reversed(suspect_ids):
-            for message in reversed(self.state.conversations.get(candidate, [])):
-                if message.get("role") == "suspect":
-                    return message.get("content")
+        """The most recent answer from ``suspect_id``, or from whoever answered last."""
+        target = suspect_id if suspect_id is not None else self.state.last_answered
+        if target is None and self.state.conversations:
+            # Games saved before ``last_answered`` existed: best effort.
+            target = list(self.state.conversations)[-1]
+        for message in reversed(self.state.conversations.get(target or "", [])):
+            if message.get("role") == "suspect":
+                return message.get("content")
         return None
 
     def _detector(self, suspect_id: str | None = None) -> ActionResult:
-        self.state.lie_detector_used += 1
         detector = self._get_detector()
         if detector is None:
+            # Not a use: the player should not lose a charge to a missing model.
             return ActionResult(
                 message=(
                     "The lie-detector needle twitches and settles. It is not ready yet — "
@@ -426,10 +464,8 @@ class Game:
                 data={"available": False},
             )
         statement = self._latest_answer(suspect_id)
-        if statement is None:
-            return ActionResult(
-                ok=False, message="There is nothing to test yet — question someone first."
-            )
+        assert statement is not None  # validated
+        self.state.lie_detector_used += 1
         prediction = detector.predict(statement)
         if prediction.label == "FALSE":
             message = "The needle trembles — it does not believe that answer."
@@ -456,6 +492,16 @@ class Game:
             message=f"You accuse {accused_name}. {verdict} {reveal}",
             data={"correct": correct, "murderer": self.case.murderer, "motive": motive},
         )
+
+
+def _restore(
+    row: dict[str, Any], store: GameStore, responder_factory: ResponderFactory | None
+) -> Game:
+    """Rebuild a saved game, letting the caller choose who answers for the suspects."""
+    responder = None
+    if responder_factory is not None:
+        responder = responder_factory(Case.model_validate(row["case_json"]), row["game_id"])
+    return Game.from_row(row, store=store, responder=responder)
 
 
 def load_or_create_game(

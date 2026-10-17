@@ -9,6 +9,7 @@ transcripts without touching a model.
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -159,9 +160,12 @@ def run_eval(
     """Generate ``games`` cases, play each with the solver, label, and record."""
     client = llm or default_client()
     records: list[GameRecord] = []
+    # Suspect memories are keyed by game id, so ids must be unique per run:
+    # reusing "eval-000" let one run's memories leak into the next run's suspects.
+    run_id = uuid.uuid4().hex[:8]
     for index in range(games):
         before = spend_today()
-        game_id = f"eval-{index:03d}"
+        game_id = f"eval-{run_id}-{index:03d}"
         log.info("eval game %d/%d: generating a case", index + 1, games)
         try:
             case, violations = generate_valid_case(

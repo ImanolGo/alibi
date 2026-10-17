@@ -52,6 +52,29 @@ services:
     mem_limit: 400m
     restart: unless-stopped
 
+  # The browser game (same image). Each visitor gets their own game; the
+  # daily budget above is shared, so keep it low on a public deploy.
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["alibi", "web", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ALIBI_ROOT: /app
+      ALIBI_DATABASE_URL: postgresql+psycopg://alibi:alibi@postgres:5432/alibi
+      ALIBI_PHOENIX_ENDPOINT: http://phoenix:6006/v1/traces
+      ALIBI_DAILY_BUDGET_USD: "1.0"
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in .env}
+    volumes:
+      - alibi_cases:/app/cases
+    ports:
+      - "8000:8000" # the browser UI
+    mem_limit: 350m
+    restart: unless-stopped
+
 volumes:
   alibi_pg:
   phoenix_data:

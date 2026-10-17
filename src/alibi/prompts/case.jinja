@@ -27,6 +27,8 @@ Requirements:
     opportunity.
 - Every id you reference (locations, actors, witnesses, `points_to`, victim,
   murderer, crime_location) must exist elsewhere in the same JSON.
+- Clue ids are shown to the detective, so they name only the object (for
+  example "clue_teacup"), never a person's name or id.
 
 Return one JSON object that validates against this schema:
 

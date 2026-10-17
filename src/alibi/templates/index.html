@@ -1,21 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Alibi — new game{% endblock %}
+{% block title %}Alibi — the case files{% endblock %}
+{% block styles %}
+  .hero { padding: 56px 0 36px; max-width: 46rem; }
+  .hero h1 { font-family: Limelight, serif; font-weight: 400; color: var(--brass); font-size: clamp(3.5rem, 12vw, 7.5rem); line-height: .9; letter-spacing: .04em; }
+  .hero p { font-size: 1.15rem; margin: 1rem 0 0; color: var(--on-baize); }
+  .files { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 22px; margin: 18px 0 40px; }
+  .files .card { display: flex; flex-direction: column; }
+  .files .card:nth-child(odd) { transform: rotate(-.6deg); }
+  .files .card:nth-child(even) { transform: rotate(.5deg); }
+  .files form { margin-top: auto; padding-top: var(--line); }
+  .continue { margin: 0 0 28px; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
+  .write { margin: 8px 0 48px; display: grid; gap: .6rem; max-width: 40rem; }
+  .writing { color: var(--on-baize-dim); font-style: italic; }
+{% endblock %}
+{% block masthead %}{% endblock %}
 {% block content %}
-  <h1>The cases</h1>
-  <form method="post" action="/case/generate">
-    <button>Generate a new case</button>
-    <span class="muted">(uses the generator model; takes a minute)</span>
-  </form>
+  <section class="hero">
+    <h1>Alibi</h1>
+    <p>A country house, a body in the library, and a handful of suspects who remember what you asked them, keep their secrets and lie to your face. Search the rooms, question them, then name the murderer before dawn.</p>
+  </section>
 
-  {% if not cases %}<p class="muted">No cases yet. Generate one above.</p>{% endif %}
-  {% for case in cases %}
-    <div class="card">
-      <h2>{{ case.title }}</h2>
-      <p class="muted">{{ case.setting }}</p>
-      <p>{{ case.persons | length }} people · {{ case.locations | length }} rooms · {{ case.clues | length }} clues · death at {{ case.time_of_death }}</p>
-      <form method="post" action="/games/{{ case.id }}">
-        <button>Start a game</button>
-      </form>
+  {% if error %}<p class="note bad" role="alert">{{ error }}</p>{% endif %}
+
+  {% if last %}
+    <div class="continue">
+      <a class="button" href="/games/{{ last.game_id }}">Continue your investigation</a>
+      <span class="dim">{{ last.case.title }}
+        {% if last.state.outcome == 'playing' %}({{ last.state.actions_left }} actions left){% else %}(closed){% endif %}</span>
     </div>
-  {% endfor %}
+  {% endif %}
+
+  <h2>The case files</h2>
+  {% if not cases %}<p class="dim">No cases yet. Have the author write one below.</p>{% endif %}
+  <div class="files">
+    {% for case in cases %}
+      <article class="card">
+        <h3>{{ case.title }}</h3>
+        <p>{{ case.setting }}</p>
+        <p class="pencil">{{ case.suspects() | length }} suspects, {{ case.locations | length }} rooms, {{ case.clues | length }} clues. Death at {{ case.time_of_death }}.</p>
+        <form method="post" action="/games/{{ case.id }}">
+          <button>Start a game</button>
+        </form>
+      </article>
+    {% endfor %}
+  </div>
+
+  <section class="write">
+    <h2>Write a new case</h2>
+    <p class="dim">The author invents a fresh mystery and a validator checks it is fair. It takes about a minute.</p>
+    <form method="post" action="/case/generate" hx-post="/case/generate" hx-target="#write-result" hx-indicator="#writing" hx-disabled-elt="find button">
+      <button>Generate a new case</button>
+    </form>
+    <p id="writing" class="htmx-indicator writing" role="status">The author is plotting: a motive here, a missing hour there…</p>
+    <div id="write-result" aria-live="polite"></div>
+  </section>
 {% endblock %}

@@ -4,7 +4,7 @@ import pytest
 
 from alibi.case import Case
 from alibi.fake_llm import FakeLLM
-from alibi.suspect import SuspectAgent, Thought
+from alibi.suspect import SuspectAgent, SuspectTeam, Thought
 
 SETTING = {"name": "Test Hall", "year": 1926, "tone": "classy cosy mystery"}
 
@@ -132,3 +132,42 @@ def test_unknown_clue_raises(valid_case: Case) -> None:
     agent = make_agent(valid_case, "butler_hobbs", llm=FakeLLM())
     with pytest.raises(KeyError):
         agent.show_clue("clue_does_not_exist")
+
+
+def test_team_restores_saved_conversations(valid_case: Case) -> None:
+    team = SuspectTeam(valid_case, memory_store=NullStore(), llm=FakeLLM())
+    team.restore(
+        {
+            "butler_hobbs": [
+                {"role": "detective", "content": "Where were you?"},
+                {"role": "suspect", "content": "Polishing the silver."},
+            ],
+            "nobody": [{"role": "detective", "content": "Hello?"}],
+        }
+    )
+    assert team.agents["butler_hobbs"].history == [
+        {"role": "user", "content": "Where were you?"},
+        {"role": "assistant", "content": "Polishing the silver."},
+    ]
+    assert team.agents["lady_blackwood"].history == []
+
+
+def _speak_prompt(llm: FakeLLM) -> str:
+    call = next(call for call in llm.calls if call["method"] == "complete")
+    return call["messages"][-1]["content"]
+
+
+def test_a_red_herring_about_you_is_not_dismissed(valid_case: Case) -> None:
+    llm = FakeLLM(completions=["That letter is private!"])
+    agent = make_agent(valid_case, "lady_blackwood", llm=llm)
+    agent.show_clue("clue_letter")  # red herring that points at Lady Blackwood
+    prompt = _speak_prompt(llm)
+    assert "nothing to do with you" not in prompt
+    assert "points at you" in prompt
+
+
+def test_a_red_herring_about_someone_else_is_dismissed(valid_case: Case) -> None:
+    llm = FakeLLM(completions=["Not mine, Inspector."])
+    agent = make_agent(valid_case, "dr_penrose", llm=llm)
+    agent.show_clue("clue_letter")
+    assert "nothing to do with you" in _speak_prompt(llm)

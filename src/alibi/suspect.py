@@ -157,12 +157,14 @@ class SuspectAgent:
                 views.append(self._clue_view(clue))
         return views
 
-    @staticmethod
-    def _clue_view(clue: Clue) -> dict[str, Any]:
+    def _clue_view(self, clue: Clue) -> dict[str, Any]:
         return {
             "id": clue.id,
             "description": clue.description,
             "is_red_herring": clue.is_red_herring,
+            # A red herring aimed at *this* suspect is about their own secret:
+            # they should squirm, not shrug it off as "nothing to do with you".
+            "points_at_me": clue.points_to == self.person_id,
         }
 
     # -- graph nodes --------------------------------------------------------
@@ -278,3 +280,20 @@ class SuspectTeam:
 
     def answer(self, suspect_id: str, question: str) -> str:
         return self.agents[suspect_id].answer(question)
+
+    def restore(self, conversations: dict[str, list[dict[str, str]]]) -> None:
+        """Reload each suspect's recent conversation from a saved game.
+
+        Without this, a suspect questioned before a restart only had its RAG
+        memories and could contradict what it said a moment ago.
+        """
+        roles = {"detective": "user", "suspect": "assistant"}
+        for suspect_id, thread in conversations.items():
+            agent = self.agents.get(suspect_id)
+            if agent is None:
+                continue
+            agent.history = [
+                {"role": roles[turn["role"]], "content": turn["content"]}
+                for turn in thread
+                if turn.get("role") in roles
+            ]

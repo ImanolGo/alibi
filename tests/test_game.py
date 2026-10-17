@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from alibi.case import Case
+from alibi.detector import Prediction
 from alibi.game import MAX_ACTIONS, Game, InMemoryGameStore
 
 
@@ -133,14 +134,71 @@ def test_unknown_suspect_is_a_friendly_error(valid_case: Case) -> None:
     assert game.state.actions_left == MAX_ACTIONS
 
 
-# --- lie detector (stub) ---------------------------------------------------
+# --- lie detector ----------------------------------------------------------
+class FakeDetector:
+    """Says every statement containing 'kitchen' is a lie."""
+
+    def __init__(self) -> None:
+        self.statements: list[str] = []
+
+    def predict(self, statement: str) -> Prediction:
+        self.statements.append(statement)
+        lie = "kitchen" in statement
+        return Prediction(label="FALSE" if lie else "TRUE", probability=0.9 if lie else 0.1)
+
+
+def make_detector_game(case: Case) -> tuple[Game, FakeDetector]:
+    detector = FakeDetector()
+    game = Game(case, store=InMemoryGameStore(), responder=FakeResponder(), detector=detector)
+    return game, detector
+
+
 def test_lie_detector_is_free_and_capped_at_two(valid_case: Case) -> None:
-    game, _ = make_game(valid_case)
+    game, _ = make_detector_game(valid_case)
+    game.question("butler_hobbs", "Where were you?")
     assert game.lie_detector().ok
     assert game.lie_detector().ok
     third = game.lie_detector()
     assert not third.ok and "twice" in third.message
-    assert game.state.actions_left == MAX_ACTIONS
+    assert game.state.actions_left == MAX_ACTIONS - 1  # only the question cost anything
+
+
+def test_lie_detector_with_nothing_to_test_keeps_its_charge(valid_case: Case) -> None:
+    game, detector = make_detector_game(valid_case)
+    result = game.lie_detector()
+    assert not result.ok and "question someone first" in result.message
+    assert game.state.lie_detector_used == 0
+    assert detector.statements == []
+
+
+def test_missing_detector_model_keeps_its_charge(valid_case: Case) -> None:
+    game, _ = make_game(valid_case)  # no model on disk in tests
+    game.question("butler_hobbs", "Where were you?")
+    result = game.lie_detector()
+    assert result.data["available"] is False
+    assert game.state.lie_detector_used == 0
+
+
+def test_lie_detector_tests_the_most_recent_answer(valid_case: Case) -> None:
+    game, detector = make_detector_game(valid_case)
+    game.question("lady_blackwood", "Where were you?")
+    game.question("butler_hobbs", "Where were you?")
+    game.question("lady_blackwood", "And after that, in the kitchen?")
+    game.lie_detector()
+    # Lady Blackwood answered last, even though Hobbs's thread was opened later.
+    assert detector.statements[-1].startswith("lady_blackwood")
+    assert game.lie_detector("butler_hobbs").ok
+    assert detector.statements[-1].startswith("butler_hobbs")
+
+
+# --- who can be questioned -------------------------------------------------
+def test_the_victim_cannot_be_questioned_or_accused(valid_case: Case) -> None:
+    game, responder = make_game(valid_case)
+    asked = game.question("lord_blackwood", "Who did it?")
+    assert not asked.ok and "No such suspect" in asked.message
+    accused = game.accuse("lord_blackwood")
+    assert not accused.ok
+    assert responder.calls == [] and game.state.outcome == "playing"
 
 
 # --- accusation / scoring --------------------------------------------------
@@ -180,3 +238,40 @@ def test_game_survives_a_restart(valid_case: Case) -> None:
     assert reloaded.state.discovered_clues == ["clue_ash", "clue_cufflink"]
     assert reloaded.state.actions_left == MAX_ACTIONS - 2
     assert "butler_hobbs" in reloaded.state.conversations
+
+
+def test_loading_a_game_does_not_overwrite_the_saved_state(valid_case: Case) -> None:
+    store = InMemoryGameStore()
+    game, _ = make_game(valid_case, store=store)
+    game.search_room("library")
+
+    store.load(game.game_id)  # e.g. a page view after a restart
+    again = store.load(game.game_id)
+
+    assert again is not None
+    assert again.state.actions_left == MAX_ACTIONS - 1
+    assert store.rows[game.game_id]["state"]["actions_left"] == MAX_ACTIONS - 1
+
+
+class HistoryResponder(FakeResponder):
+    def __init__(self) -> None:
+        super().__init__()
+        self.restored: dict[str, list[dict[str, str]]] = {}
+
+    def restore(self, conversations: dict[str, list[dict[str, str]]]) -> None:
+        self.restored = conversations
+
+
+def test_reloaded_suspects_remember_the_conversation(valid_case: Case) -> None:
+    store = InMemoryGameStore()
+    game, _ = make_game(valid_case, store=store)
+    game.question("butler_hobbs", "Where were you?")
+
+    responder = HistoryResponder()
+    row = store.rows[game.game_id]
+    Game.from_row(row, store=store, responder=responder)
+
+    assert responder.restored["butler_hobbs"][0] == {
+        "role": "detective",
+        "content": "Where were you?",
+    }
