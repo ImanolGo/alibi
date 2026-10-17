@@ -4,33 +4,94 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Alibi{% endblock %}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+  <meta name="theme-color" content="#12271f">
+  {# Served from the package: no CDN at runtime (works offline, behind a strict
+     CSP, and avoids the old unpkg tag whose integrity hash did not match). #}
+  <script src="/static/htmx.min.js" defer></script>
   <style>
-    :root { color-scheme: dark; }
-    body { margin: 0; font: 16px/1.5 ui-serif, Georgia, serif; background: #14110f; color: #efe7dc; }
-    header { padding: 1rem 1.5rem; border-bottom: 1px solid #3a3128; }
-    header a { color: #e8c07d; text-decoration: none; font-weight: 700; letter-spacing: .04em; }
-    main { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
-    h1, h2, h3 { font-family: ui-sans-serif, system-ui, sans-serif; }
-    button { background: #3a2f22; color: #efe7dc; border: 1px solid #6b5638; border-radius: 6px; padding: .35rem .6rem; cursor: pointer; }
-    button:hover { background: #4b3c2b; }
-    input, select { background: #1e1a16; color: #efe7dc; border: 1px solid #4a3f31; border-radius: 6px; padding: .35rem; }
-    .muted { color: #a99b88; }
-    .status { display: flex; gap: 1rem; flex-wrap: wrap; padding: .6rem .8rem; border: 1px solid #3a3128; border-radius: 8px; margin-bottom: 1rem; }
-    .result { padding: .7rem .9rem; border-left: 4px solid #6b5638; background: #1e1a16; border-radius: 6px; margin-bottom: 1rem; white-space: pre-wrap; }
-    .result.bad { border-color: #a4523b; }
-    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
-    section { margin-bottom: 1.4rem; }
-    .suspect { border: 1px solid #3a3128; border-radius: 8px; padding: .7rem; margin-bottom: .8rem; }
-    .suspect p { margin: .3rem 0; }
-    .suspect .detective { color: #9ec5e8; } .suspect .suspect { color: #e8c07d; }
-    details summary { cursor: pointer; color: #a99b88; }
-    .card { border: 1px solid #3a3128; border-radius: 8px; padding: 1rem; margin-bottom: .8rem; }
-    a { color: #e8c07d; }
+    @font-face { font-family: "Courier Prime"; font-weight: 400; font-display: swap; src: url(/static/fonts/courier-prime-latin-400-normal.woff2) format("woff2"); }
+    @font-face { font-family: "Courier Prime"; font-weight: 400; font-style: italic; font-display: swap; src: url(/static/fonts/courier-prime-latin-400-italic.woff2) format("woff2"); }
+    @font-face { font-family: "Courier Prime"; font-weight: 700; font-display: swap; src: url(/static/fonts/courier-prime-latin-700-normal.woff2) format("woff2"); }
+    @font-face { font-family: "Limelight"; font-weight: 400; font-display: swap; src: url(/static/fonts/limelight-latin-400-normal.woff2) format("woff2"); }
+    /* A detective's card table at night: green baize, typed index cards, brass. */
+    :root {
+      --baize: #1c3a2e; --baize-deep: #12271f; --baize-line: #2c5143;
+      --card: #f7f7f2; --rule: #c9d7e8; --margin: #d4564a;
+      --ink: #1f2230; --pencil: #5d6170; --on-baize: #e8eee9; --on-baize-dim: #a9bdb2;
+      --brass: #c8a043; --brass-deep: #8a6c22; --blood: #a3302a;
+      --line: 1.75rem;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--baize); }
+    body {
+      margin: 0; min-height: 100vh; color: var(--on-baize);
+      font: 17px/1.55 "Courier Prime", ui-monospace, Menlo, monospace;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255, 214, 140, .13), transparent 70%),
+        var(--baize);
+    }
+    a { color: var(--brass); }
+    :focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+    .masthead { display: flex; align-items: baseline; gap: 1rem; padding: 18px 0; border-bottom: 1px solid var(--baize-line); }
+    .wordmark { font-family: Limelight, serif; color: var(--brass); text-decoration: none; font-size: 1.6rem; letter-spacing: .06em; }
+    .masthead .dim { color: var(--on-baize-dim); font-size: .9rem; }
+    h1, h2, h3 { font-weight: 700; line-height: 1.2; margin: 0; }
+    h2 { font-size: 1.15rem; }
+    .dim { color: var(--on-baize-dim); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* Index cards: blue ruled lines under a red header line. */
+    .card {
+      position: relative; color: var(--ink); background-color: var(--card);
+      background-image:
+        linear-gradient(transparent calc(2.9rem - 2px), var(--margin) calc(2.9rem - 2px), var(--margin) 2.9rem, transparent 2.9rem),
+        repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line));
+      background-position: 0 0, 0 calc(2.9rem + .35rem);
+      background-repeat: no-repeat, repeat;
+      background-size: 100% 100%, 100% var(--line);
+      border-radius: 3px; padding: .7rem 1rem 1rem; line-height: var(--line);
+      box-shadow: 0 1px 0 rgba(0,0,0,.25), 0 10px 24px -14px rgba(0,0,0,.8);
+    }
+    .card.plain { background-image: repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px) var(--line)); background-position: 0 .7rem; background-size: 100% var(--line); }
+    .card h3, .card h2 { height: 2.2rem; line-height: 2.2rem; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card p { margin: 0; }
+    .card .pencil { color: var(--pencil); }
+
+    button, .button {
+      font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block;
+      background: var(--brass); color: #20180a; border: 0; border-radius: 3px; padding: .35rem .8rem;
+      box-shadow: inset 0 -2px 0 var(--brass-deep);
+    }
+    button:hover, .button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    button.quiet { background: transparent; color: inherit; box-shadow: inset 0 0 0 1.5px currentColor; font-weight: 400; }
+    input[type=text], input:not([type]), select, textarea {
+      font: inherit; color: var(--ink); background: #fff; border: 1.5px solid var(--pencil); border-radius: 3px; padding: .3rem .5rem; width: 100%;
+    }
+    .note { margin: 0; padding: .6rem .9rem; border-left: 4px solid var(--brass); background: rgba(0,0,0,.25); }
+    .note.bad { border-color: var(--margin); }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: block; }
+    .stamp {
+      display: inline-block; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--blood); border: 3px double var(--blood); padding: .1rem .5rem; transform: rotate(-4deg);
+      opacity: .85; mix-blend-mode: multiply;
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    {% block styles %}{% endblock %}
   </style>
 </head>
 <body>
-  <header><a href="/">ALIBI</a> <span class="muted">· a murder mystery where every suspect is an LLM</span></header>
-  <main>{% block content %}{% endblock %}</main>
+  <div class="wrap">
+    {% block masthead %}
+    <header class="masthead">
+      <a class="wordmark" href="/">ALIBI</a>
+      <span class="dim">a murder mystery where every suspect is an LLM</span>
+    </header>
+    {% endblock %}
+    <main>{% block content %}{% endblock %}</main>
+  </div>
 </body>
 </html>

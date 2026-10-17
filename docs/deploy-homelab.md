@@ -1,13 +1,14 @@
 # Deploying Alibi on the homelab (N150, 4 GB RAM, no GPU)
 
-The stack is three containers: **Postgres + pgvector** (memory and game state),
-**Phoenix** (tracing) and **the app** (the game exposed as MCP tools over
-streamable HTTP). No local model runs on the box — all LLMs and embeddings go to
-hosted APIs through LiteLLM. Total budget is under ~2 GB.
+The stack is four containers: **Postgres + pgvector** (memory and game state),
+**Phoenix** (tracing), **the app** (the game exposed as MCP tools over
+streamable HTTP, port 8080) and **web** (the browser game, port 8000, same
+image). No local model runs on the box — all LLMs and embeddings go to hosted
+APIs through LiteLLM. Memory limits add up to ~1.6 GB, under the ~2 GB budget.
 
-> The browser UI is milestone M5 and is not built yet. Today the deployed
-> service is the MCP endpoint; a local MCP client (or the OpenCode/Claude
-> Desktop MCP config) can play it over HTTP.
+> The web UI serves HTMX and its fonts from the package itself, so it needs no
+> CDN. Point a Cloudflare Tunnel at port 8000 to share the browser game; each
+> visitor gets their own game, but they share `ALIBI_DAILY_BUDGET_USD`.
 
 ## 1. Prerequisites
 

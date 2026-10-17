@@ -9,6 +9,7 @@ LangGraph pipeline (validate → apply → update); informational ones are free.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any, Literal, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -41,6 +42,7 @@ class GameState(BaseModel):
     case_id: str
     actions_left: int = MAX_ACTIONS
     discovered_clues: list[str] = Field(default_factory=list)
+    searched_rooms: list[str] = Field(default_factory=list)
     examined_clues: list[str] = Field(default_factory=list)
     presented: dict[str, list[str]] = Field(default_factory=dict)
     lie_detector_used: int = 0
@@ -71,10 +73,15 @@ class ActionState(TypedDict, total=False):
     result: ActionResult
 
 
+ResponderFactory = Callable[[Case, str], Responder]
+
+
 class GameStore(Protocol):
     def save(self, game: Game) -> None: ...
 
-    def load(self, game_id: str) -> Game | None: ...
+    def load(
+        self, game_id: str, *, responder_factory: ResponderFactory | None = None
+    ) -> Game | None: ...
 
     def delete(self, game_id: str) -> None: ...
 
@@ -88,9 +95,11 @@ class InMemoryGameStore:
     def save(self, game: Game) -> None:
         self.rows[game.game_id] = game.to_row()
 
-    def load(self, game_id: str) -> Game | None:
+    def load(
+        self, game_id: str, *, responder_factory: ResponderFactory | None = None
+    ) -> Game | None:
         row = self.rows.get(game_id)
-        return None if row is None else Game.from_row(row, store=self)
+        return None if row is None else _restore(row, self, responder_factory)
 
     def delete(self, game_id: str) -> None:
         self.rows.pop(game_id, None)
@@ -114,7 +123,9 @@ class SqlGameStore:
                 existing.case_json = row["case_json"]
             session.commit()
 
-    def load(self, game_id: str) -> Game | None:
+    def load(
+        self, game_id: str, *, responder_factory: ResponderFactory | None = None
+    ) -> Game | None:
         with self._session_factory() as session:
             row = session.get(GameRow, game_id)
             if row is None:
@@ -125,7 +136,7 @@ class SqlGameStore:
                 "state": row.state,
                 "case_json": row.case_json,
             }
-        return Game.from_row(data, store=self)
+        return _restore(data, self, responder_factory)
 
     def delete(self, game_id: str) -> None:
         with self._session_factory() as session:
@@ -380,6 +391,8 @@ class Game:
         found = [clue for clue in self.case.clues if clue.location == room_id]
         newly = [clue.id for clue in found if clue.id not in self.state.discovered_clues]
         self.state.discovered_clues.extend(newly)
+        if room_id not in self.state.searched_rooms:
+            self.state.searched_rooms.append(room_id)
 
         if not found:
             return ActionResult(message=f"You search {room.name} but find nothing of note.")
@@ -479,6 +492,16 @@ class Game:
             message=f"You accuse {accused_name}. {verdict} {reveal}",
             data={"correct": correct, "murderer": self.case.murderer, "motive": motive},
         )
+
+
+def _restore(
+    row: dict[str, Any], store: GameStore, responder_factory: ResponderFactory | None
+) -> Game:
+    """Rebuild a saved game, letting the caller choose who answers for the suspects."""
+    responder = None
+    if responder_factory is not None:
+        responder = responder_factory(Case.model_validate(row["case_json"]), row["game_id"])
+    return Game.from_row(row, store=store, responder=responder)
 
 
 def load_or_create_game(

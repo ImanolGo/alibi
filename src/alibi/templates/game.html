@@ -1,5 +1,59 @@
 {% extends "base.html" %}
 {% block title %}{{ game.case.title }} — Alibi{% endblock %}
+{% block styles %}
+  #board { padding: 20px 0 64px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.6rem; margin-bottom: 18px; }
+  .bar h1 { font-size: 1.35rem; margin-right: auto; }
+  .clock { display: flex; align-items: center; gap: .6rem; }
+  .dial { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--brass);
+          background: conic-gradient(rgba(200,160,67,.85) calc(var(--used) * 1turn), rgba(0,0,0,.35) 0); }
+  .clock.urgent .dial { border-color: var(--margin); background: conic-gradient(rgba(212,86,74,.9) calc(var(--used) * 1turn), rgba(0,0,0,.35) 0); }
+  .clock b { font-size: 1.2rem; }
+  .bulbs { display: flex; gap: .35rem; align-items: center; }
+  .bulb { width: 13px; height: 13px; border-radius: 50%; background: var(--brass); box-shadow: 0 0 8px rgba(200,160,67,.7); }
+  .bulb.spent { background: #3c4a43; box-shadow: none; }
+  .result { margin-bottom: 22px; }
+  .result .card { white-space: pre-wrap; }
+  .layout { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 28px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  aside { display: grid; gap: 22px; }
+  .rooms { display: grid; gap: .45rem; }
+  .rooms form { display: flex; align-items: center; gap: .5rem; }
+  .rooms button { flex: 1; text-align: left; }
+  .rooms .searched { background: transparent; color: var(--on-baize-dim); box-shadow: inset 0 0 0 1.5px var(--baize-line); font-weight: 400; }
+  .rooms small { color: var(--on-baize-dim); white-space: nowrap; }
+  .slips { display: grid; gap: 12px; }
+  .slip { color: var(--ink); background: var(--card); border-radius: 2px; padding: .6rem 2rem .7rem .8rem; font-size: .92rem; line-height: 1.4;
+          box-shadow: 0 8px 18px -12px rgba(0,0,0,.9); position: relative; }
+  .slip::before { content: ""; position: absolute; top: -7px; right: 14px; width: 12px; height: 26px; border: 2px solid #9aa3ad; border-radius: 6px; border-bottom: 0; }
+  .slip .where { display: block; color: var(--pencil); font-size: .8rem; margin-top: .25rem; }
+  .suspects { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 24px; }
+  .suspect:nth-child(odd) { transform: rotate(-.35deg); } .suspect:nth-child(even) { transform: rotate(.3deg); }
+  .suspect .who { color: var(--pencil); }
+  .transcript { margin: .2rem 0 .4rem; }
+  .transcript p { margin: 0; }
+  .transcript .q { color: var(--pencil); }
+  .transcript .q::before { content: "Q. "; font-weight: 700; }
+  .transcript .a::before { content: "A. "; font-weight: 700; }
+  .transcript .a.fresh { animation: typeon 1.6s steps(48, end) both; }
+  @keyframes typeon { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+  .ask { display: grid; gap: .4rem; margin-top: .4rem; }
+  .ask .row { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .ask .row input { flex: 1 1 12rem; }
+  details summary { cursor: pointer; color: var(--pencil); }
+  details label { display: flex; gap: .45rem; align-items: baseline; line-height: 1.35; margin: .3rem 0; font-size: .92rem; }
+  .gauge { display: flex; align-items: center; gap: 1rem; }
+  .gauge svg { width: 120px; flex: none; }
+  .gauge .needle { transform-origin: 60px 60px; transition: transform 1.2s cubic-bezier(.3,1.6,.5,1); }
+  .telegram { margin-top: 34px; background: #f1e6b5; color: var(--ink); border-radius: 2px; padding: 1rem 1.1rem;
+              background-image: repeating-linear-gradient(#f1e6b5 0 2.1rem, #e7d895 2.1rem 2.2rem); }
+  .telegram h2 { letter-spacing: .1em; text-transform: uppercase; font-size: 1rem; }
+  .telegram form { display: grid; gap: .5rem; grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) auto; margin-top: .6rem; }
+  @media (max-width: 700px) { .telegram form { grid-template-columns: 1fr; } }
+  .telegram button { background: var(--blood); color: #fff; box-shadow: inset 0 -2px 0 #6e1d19; }
+  .verdict { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.6rem; }
+  .verdict .stamp { font-size: 1.8rem; color: var(--margin); border-color: var(--margin); mix-blend-mode: normal; }
+{% endblock %}
 {% block content %}
   {% include "partials/board.html" %}
 {% endblock %}
