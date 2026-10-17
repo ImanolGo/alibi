@@ -41,6 +41,8 @@ make test && make lint
 
 ![The reveal: your detective rank, what you missed, every secret and the true timeline](assets/alibi-reveal.webp)
 
+<img src="assets/alibi-mobile.webp" alt="The same board on a phone: one column with the cards stacked" width="320">
+
 _Screenshots use the test case with scripted answers. A recorded GIF of a real game and a live link are still to do._
 
 ## Architecture
