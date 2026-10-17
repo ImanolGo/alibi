@@ -19,11 +19,13 @@ ROLE_NAMES: tuple[str, ...] = get_args(Role)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+# Fallbacks if config/models.yaml is missing. They match that file, so one
+# OPENROUTER_API_KEY is still enough (the old fallbacks needed an OpenAI key).
 DEFAULT_MODELS: dict[str, str] = {
-    "generator": "openai/gpt-4o",
-    "suspect": "openai/gpt-4o-mini",
-    "judge": "openai/gpt-4o-mini",
-    "solver": "openai/gpt-4o-mini",
+    "generator": "openrouter/deepseek/deepseek-v4.1-flash",
+    "suspect": "openrouter/deepseek/deepseek-v4.1-flash",
+    "judge": "openrouter/deepseek/deepseek-v4.1-flash",
+    "solver": "openrouter/deepseek/deepseek-v4.1-flash",
     "embedding": "openrouter/openai/text-embedding-3-small",
 }
 

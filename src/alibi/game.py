@@ -45,6 +45,8 @@ class GameState(BaseModel):
     presented: dict[str, list[str]] = Field(default_factory=dict)
     lie_detector_used: int = 0
     conversations: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
+    # Who answered most recently: the lie detector's default target.
+    last_answered: str | None = None
     accused: str | None = None
     outcome: Literal["playing", "won", "lost"] = "playing"
     log: list[str] = Field(default_factory=list)
@@ -146,6 +148,7 @@ class Game:
         llm: LLM | None = None,
         reason: bool | None = None,
         detector: Detector | None = None,
+        _restoring: bool = False,
     ) -> None:
         self.case = case
         self.game_id = game_id or case.id
@@ -157,7 +160,7 @@ class Game:
         self._detector_impl = detector
         self._detector_checked = detector is not None
         self._pipeline = self._build_pipeline()
-        if self.store is not None:
+        if self.store is not None and not _restoring:
             self.store.save(self)
 
     # -- persistence --------------------------------------------------------
@@ -180,6 +183,8 @@ class Game:
         reason: bool | None = None,
     ) -> Game:
         case = Case.model_validate(row["case_json"])
+        # ``_restoring`` stops the constructor saving a fresh state over the
+        # saved one (which used to wipe progress whenever a game was loaded).
         game = cls(
             case,
             game_id=row["game_id"],
@@ -187,8 +192,13 @@ class Game:
             responder=responder,
             llm=llm,
             reason=reason,
+            _restoring=True,
         )
         game.state = GameState.model_validate(row["state"])
+        # Suspects keep their conversation across restarts, not just their RAG memory.
+        restore = getattr(game.responder, "restore", None)
+        if callable(restore):
+            restore(game.state.conversations)
         return game
 
     def save(self) -> None:
@@ -271,8 +281,11 @@ class Game:
         return result
 
     def _cost(self, kind: str) -> int:
-        # The lie detector is a stub until M5; do not charge the player for it.
+        # The lie detector has its own budget (MAX_LIE_DETECTOR uses), not actions.
         return 0 if kind == "detector" else 1
+
+    def _is_suspect(self, person_id: str) -> bool:
+        return any(person.id == person_id for person in self.case.suspects())
 
     def _validate_node(self, state: ActionState) -> dict[str, Any]:
         action = state["action"]
@@ -322,7 +335,8 @@ class Game:
             if action["clue_id"] not in self.state.discovered_clues:
                 return "You have not found that yet — search a room first."
         elif kind == "question":
-            if self.case.person(action["suspect_id"]) is None:
+            # The victim is a person in the case but not someone you can question.
+            if not self._is_suspect(action["suspect_id"]):
                 return f"No such suspect {action['suspect_id']!r}."
             if not action.get("text", "").strip():
                 return "You must actually ask something."
@@ -332,10 +346,17 @@ class Game:
                 if clue_id not in self.state.discovered_clues:
                     return f"You cannot present {clue_id!r} — you have not found it yet."
         elif kind == "accuse":
-            if self.case.person(action["suspect_id"]) is None:
+            if not self._is_suspect(action["suspect_id"]):
                 return f"No such suspect {action['suspect_id']!r}."
-        elif kind == "detector" and self.state.lie_detector_used >= MAX_LIE_DETECTOR:
-            return "The lie detector has already been used twice."
+        elif kind == "detector":
+            if self.state.lie_detector_used >= MAX_LIE_DETECTOR:
+                return "The lie detector has already been used twice."
+            suspect_id = action.get("suspect_id")
+            if suspect_id is not None and not self._is_suspect(suspect_id):
+                return f"No such suspect {suspect_id!r}."
+            # A missing model says "not ready" (in apply) before asking for an answer.
+            if self._get_detector() is not None and self._latest_answer(suspect_id) is None:
+                return "There is nothing to test yet — question someone first."
         return None
 
     # -- applying -----------------------------------------------------------
@@ -393,6 +414,7 @@ class Game:
         thread = self.state.conversations.setdefault(suspect_id, [])
         thread.append({"role": "detective", "content": text})
         thread.append({"role": "suspect", "content": answer})
+        self.state.last_answered = suspect_id
         return ActionResult(
             message=answer,
             data={"suspect": suspect_id, "evidence_presented": list(presented)},
@@ -407,17 +429,20 @@ class Game:
         return self._detector_impl
 
     def _latest_answer(self, suspect_id: str | None = None) -> str | None:
-        suspect_ids = [suspect_id] if suspect_id is not None else list(self.state.conversations)
-        for candidate in reversed(suspect_ids):
-            for message in reversed(self.state.conversations.get(candidate, [])):
-                if message.get("role") == "suspect":
-                    return message.get("content")
+        """The most recent answer from ``suspect_id``, or from whoever answered last."""
+        target = suspect_id if suspect_id is not None else self.state.last_answered
+        if target is None and self.state.conversations:
+            # Games saved before ``last_answered`` existed: best effort.
+            target = list(self.state.conversations)[-1]
+        for message in reversed(self.state.conversations.get(target or "", [])):
+            if message.get("role") == "suspect":
+                return message.get("content")
         return None
 
     def _detector(self, suspect_id: str | None = None) -> ActionResult:
-        self.state.lie_detector_used += 1
         detector = self._get_detector()
         if detector is None:
+            # Not a use: the player should not lose a charge to a missing model.
             return ActionResult(
                 message=(
                     "The lie-detector needle twitches and settles. It is not ready yet — "
@@ -426,10 +451,8 @@ class Game:
                 data={"available": False},
             )
         statement = self._latest_answer(suspect_id)
-        if statement is None:
-            return ActionResult(
-                ok=False, message="There is nothing to test yet — question someone first."
-            )
+        assert statement is not None  # validated
+        self.state.lie_detector_used += 1
         prediction = detector.predict(statement)
         if prediction.label == "FALSE":
             message = "The needle trembles — it does not believe that answer."

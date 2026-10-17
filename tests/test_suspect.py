@@ -4,7 +4,7 @@ import pytest
 
 from alibi.case import Case
 from alibi.fake_llm import FakeLLM
-from alibi.suspect import SuspectAgent, Thought
+from alibi.suspect import SuspectAgent, SuspectTeam, Thought
 
 SETTING = {"name": "Test Hall", "year": 1926, "tone": "classy cosy mystery"}
 
@@ -132,3 +132,21 @@ def test_unknown_clue_raises(valid_case: Case) -> None:
     agent = make_agent(valid_case, "butler_hobbs", llm=FakeLLM())
     with pytest.raises(KeyError):
         agent.show_clue("clue_does_not_exist")
+
+
+def test_team_restores_saved_conversations(valid_case: Case) -> None:
+    team = SuspectTeam(valid_case, memory_store=NullStore(), llm=FakeLLM())
+    team.restore(
+        {
+            "butler_hobbs": [
+                {"role": "detective", "content": "Where were you?"},
+                {"role": "suspect", "content": "Polishing the silver."},
+            ],
+            "nobody": [{"role": "detective", "content": "Hello?"}],
+        }
+    )
+    assert team.agents["butler_hobbs"].history == [
+        {"role": "user", "content": "Where were you?"},
+        {"role": "assistant", "content": "Polishing the silver."},
+    ]
+    assert team.agents["lady_blackwood"].history == []

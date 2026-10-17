@@ -2,7 +2,8 @@
 
 An offline step (run on a laptop, not the server): it shrinks ``model.onnx``
 from ~268 MB fp32 to ~67 MB int8 and speeds up CPU inference. The fp32 file is
-kept as ``model.fp32.onnx`` so the step is idempotent. Needs only onnxruntime.
+kept as ``model.fp32.onnx`` so the step is idempotent. ``onnxruntime.quantization``
+imports the ``onnx`` package, which lives in the ``ml`` group, not the server image.
 """
 
 from __future__ import annotations
@@ -10,13 +11,22 @@ from __future__ import annotations
 from pathlib import Path
 
 
+class QuantizeUnavailableError(RuntimeError):
+    """Raised when the ``ml`` dependency group (which provides ``onnx``) is missing."""
+
+
 def quantize_model(model_path: Path | str, out_dir: Path | str | None = None) -> tuple[int, int]:
     """Quantize ``model_path`` to int8 in ``out_dir``; return (before, after) bytes."""
-    from onnxruntime.quantization import QuantType, quantize_dynamic
-
     source = Path(model_path)
     if not source.exists():
         raise FileNotFoundError(source)
+
+    try:
+        from onnxruntime.quantization import QuantType, quantize_dynamic
+    except ImportError as exc:  # onnx is not installed in the default environment
+        raise QuantizeUnavailableError(
+            "quantizing needs the `onnx` package: run `uv sync --group ml` first"
+        ) from exc
 
     destination = Path(out_dir) if out_dir else source.parent
     destination.mkdir(parents=True, exist_ok=True)

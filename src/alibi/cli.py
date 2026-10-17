@@ -408,9 +408,13 @@ def quantize_detector(
     out: Path | None = typer.Option(None, "--out", help="Output dir (default: beside the model)."),
 ) -> None:
     """Quantize the ONNX lie detector to int8 (offline; smaller and faster on CPU)."""
-    from .quantize import quantize_model
+    from .quantize import QuantizeUnavailableError, quantize_model
 
-    before, after = quantize_model(model, out)
+    try:
+        before, after = quantize_model(model, out)
+    except QuantizeUnavailableError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
     console.print(
         f"Quantized {model}: {before / 1e6:.0f} MB fp32 -> {after / 1e6:.0f} MB int8 "
         f"({after / before * 100:.0f}%)"

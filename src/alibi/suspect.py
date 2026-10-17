@@ -278,3 +278,20 @@ class SuspectTeam:
 
     def answer(self, suspect_id: str, question: str) -> str:
         return self.agents[suspect_id].answer(question)
+
+    def restore(self, conversations: dict[str, list[dict[str, str]]]) -> None:
+        """Reload each suspect's recent conversation from a saved game.
+
+        Without this, a suspect questioned before a restart only had its RAG
+        memories and could contradict what it said a moment ago.
+        """
+        roles = {"detective": "user", "suspect": "assistant"}
+        for suspect_id, thread in conversations.items():
+            agent = self.agents.get(suspect_id)
+            if agent is None:
+                continue
+            agent.history = [
+                {"role": roles[turn["role"]], "content": turn["content"]}
+                for turn in thread
+                if turn.get("role") in roles
+            ]
